@@ -10,9 +10,9 @@ This is the code and data for the work presented in the arXiv tech report, [Advi
 If you find this work useful in your research, please consider citing:
 
     @ARTICLE{elbanani_adviser_2018,
-        author = {El Banani, Mohamed and Corso, Jason J.},
-        title = "{Adviser Networks: Learning What Question to Ask for Human-In-The-Loop Viewpoint Estimation}",
-        journal = {ArXiv e-prints},
+        author = "El Banani, Mohamed and Corso, Jason J.",
+        title = "Adviser Networks: Learning What Question to Ask for Human-In-The-Loop Viewpoint Estimation",
+        journal = ArXiv e-prints,
         year = 2018,
         month = Feb,
     }
@@ -36,6 +36,10 @@ If you have any questions, please email me at mbanani@umich.edu.
 
 ### Pascal3D - Vehicles with Keypoints
 
+We fine-tuned both models on the Pascal 3D+ (Vehicles with Keypoints) dataset.
+Since we suspect that the problem with the replication of the Click-Here CNN model
+is in the attention section, we conducted an experiment where we only fine-tuned
+those weights. As reported below, fine-tuning just the attention model achieves the best performance.
 We fine-tuned both models on the Pascal 3D+ (Vehicles with Keypoints) dataset.
 Since we suspect that the problem with the replication of the Click-Here CNN model
 is in the attention section, we conducted an experiment where we only fine-tuned
