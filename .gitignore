@@ -1,3 +1,15 @@
+experiments
+set_env.sh
+trash
+cluster*
+*.npy
+*.pth
+*.pkl
+old_stuff
+test.py
+data/*.csv
+data/*.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

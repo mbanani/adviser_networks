@@ -24,22 +24,18 @@ If you have any questions, please email me at mbanani@umich.edu.
 ## To Do
 
 - [ ] Import code from the viewpoint_estimation repository!
-    - [ ] Move Code!
+    - [x] Move Code!
     - [ ] Replicate results
 - [ ] Run Adviser on the new attention-FT model
 - [ ] Figure out a way of getting some proper priors on the data! Provide a more thorough analysis of the priors
 - [ ] Compare against Bayesian, Information Theory, (and RL ?) approaches to this problem
 - [ ] Look at the tasks described by the ICLR 2018 paper -- ["Ask The Right Question"](https://openreview.net/forum?id=S1CChZ-CZ)
-
+- [ ] Move loggin inside of metrics
 
 ## Results
 
 ### Pascal3D - Vehicles with Keypoints
 
-We fine-tuned both models on the Pascal 3D+ (Vehicles with Keypoints) dataset.
-Since we suspect that the problem with the replication of the Click-Here CNN model
-is in the attention section, we conducted an experiment where we only fine-tuned
-those weights. As reported below, fine-tuning just the attention model achieves the best performance.
 We fine-tuned both models on the Pascal 3D+ (Vehicles with Keypoints) dataset.
 Since we suspect that the problem with the replication of the Click-Here CNN model
 is in the attention section, we conducted an experiment where we only fine-tuned
