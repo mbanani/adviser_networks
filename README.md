@@ -41,7 +41,7 @@ Since we suspect that the problem with the replication of the Click-Here CNN mod
 is in the attention section, we conducted an experiment where we only fine-tuned
 those weights. As reported below, fine-tuning just the attention model achieves the best performance.
 
-#### Accuracy
+##### Accuracy
 |                               |  bus  | car   | m.bike | mean  |
 |:-----------------------------:|:-----:|:-----:|:------:|:-----:|
 | Render For CNN                | 89.26 | 74.36 | 81.93  | 81.85 |
@@ -52,7 +52,7 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 | Click-Here CNN FT             | 92.97 | 89.84 | 81.25  | 88.02 |
 | Click-Here CNN FT-Attention   | 94.48 | 90.77 | 84.91  | 90.05 |
 
-#### Median Error
+##### Median Error
 |                               |  bus  | car   | m.bike | mean  |
 |:-----------------------------:|:-----:|:-----:|:------:|:-----:|
 | Render For CNN                | 5.16  | 8.53  | 13.46  | 9.05  |
@@ -62,6 +62,48 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 | Click-Here CNN (reported)     | 2.63  | 4.98  | 11.4   | 6.35  |
 | Click-Here CNN FT             | 2.93  | 5.14  | 13.42  | 7.16  |
 | Click-Here CNN FT-Attention   | 2.88  | 5.24  | 12.10  | 6.74  |
+
+
+### Pascal KP for Adviser  -- Baselines
+
+#### Training Data with No Flip
+
+##### Accuracy
+|                               |  bus  | car   | m.bike | mean  |
+|:-----------------------------:|:-----:|:-----:|:------:|:-----:|
+| Worst                         | 99.63 | 99.26 | 95.59  | 98.16 |
+| Mean                          | 100.  | 99.68 | 96.18  | 98.62 |
+| Median                        | 100.  | 99.79 | 96.18  | 98.66 |
+| Best                          | 100.  | 99.89 | 96.47  | 98.79 |
+
+
+##### Median Error
+|                               |  bus  | car   | m.bike | mean  |
+|:-----------------------------:|:-----:|:-----:|:------:|:-----:|
+| Worst                         | 0.    | 0.71  | 0.     | 0.24  |
+| Mean                          | 0.    | 0.12  | 0.     | 0.04  |
+| Median                        | 0.    | 0.    | 0.     | 0.0   |
+| Best                          | 0.    | 0.    | 0.     | 0.0   |
+
+
+#### Test Data with No Flip
+
+#### Accuracy
+|                               |  bus  | car   | m.bike | mean  |
+|:-----------------------------:|:-----:|:-----:|:------:|:-----:|
+| Worst                         | 87.19 | 81.4  | 75.81  | 81.47 |
+| Mean                          | 89.68 | 84.73 | 78.17  | 84.19 |
+| Median                        | 92.17 | 88.71 | 79.35  | 86.74 |
+| Best                          | 95.37 | 92.37 | 87.91  | 91.88 |
+
+
+#### Median Error
+|                               |  bus  | car   | m.bike | mean  |
+|:-----------------------------:|:-----:|:-----:|:------:|:-----:|
+| Worst                         |  3.7  | 7.1   | 13.98  | 8.26  |
+| Mean                          |  3.41 | 6.65  | 13.21  | 7.76  |
+| Median                        |  3.25 | 6.18  | 12.71  | 7.38  |
+| Best                          |  2.92 | 5.45  | 11.69  | 6.69  |
 
 
 ## Acknowledgements
