@@ -34,80 +34,44 @@ If you have any questions, please email me at mbanani@umich.edu.
 
 ## Results
 
-### Pascal3D - Vehicles with Keypoints
+### Pascal3D - Vehicles with Keypoints -- Overall Results
 
 We fine-tuned both models on the Pascal 3D+ (Vehicles with Keypoints) dataset.
 Since we suspect that the problem with the replication of the Click-Here CNN model
 is in the attention section, we conducted an experiment where we only fine-tuned
 those weights. As reported below, fine-tuning just the attention model achieves the best performance.
 
-##### Accuracy
-|                               |  bus  | car   | m.bike | mean  |
-|:-----------------------------:|:-----:|:-----:|:------:|:-----:|
-| Render For CNN                | 89.26 | 74.36 | 81.93  | 81.85 |
-| Render For CNN FT             | 93.55 | 83.98 | 87.30  | 88.28 |
-| Render For CNN FT (reported)  | 90.6  | 82.4  | 84.1   | 85.7  |
-| Click-Here CNN                | 86.91 | 83.25 | 73.83  | 81.33 |
-| Click-Here CNN (reported)     | 96.8  | 90.2  | 85.2   | 90.7  |
-| Click-Here CNN FT             | 92.97 | 89.84 | 81.25  | 88.02 |
-| Click-Here CNN FT-Attention   | 94.48 | 90.77 | 84.91  | 90.05 |
-
-##### Median Error
-|                               |  bus  | car   | m.bike | mean  |
-|:-----------------------------:|:-----:|:-----:|:------:|:-----:|
-| Render For CNN                | 5.16  | 8.53  | 13.46  | 9.05  |
-| Render For CNN FT             | 3.04  | 5.83  | 11.95  | 6.94  |
-| Render For CNN FT (reported)  | 2.93  | 5.63  | 11.7   | 6.74  |
-| Click-Here CNN                | 4.01  | 8.18  | 19.71  | 10.63 |
-| Click-Here CNN (reported)     | 2.63  | 4.98  | 11.4   | 6.35  |
-| Click-Here CNN FT             | 2.93  | 5.14  | 13.42  | 7.16  |
-| Click-Here CNN FT-Attention   | 2.88  | 5.24  | 12.10  | 6.74  |
+|                               |  bus  | car   | m.bike | mean  |  bus   | car   | m.bike | mean  |
+|:-----------------------------:|:-----:|:-----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|
+| Render For CNN                | 89.26 | 74.36 | 81.93  | 81.85 |  5.16  | 8.53  | 13.46  | 9.05  |
+| Render For CNN FT             | 93.55 | 83.98 | 87.30  | 88.28 |  3.04  | 5.83  | 11.95  | 6.94  |
+| Render For CNN FT (reported)  | 90.6  | 82.4  | 84.1   | 85.7  |  2.93  | 5.63  | 11.Â   | 6.74  |
+| Click-Here CNN                | 86.91 | 83.25 | 73.83  | 81.33 |  4.01  | 8.18  | 19.71  | 10.63 |
+| Click-Here CNN (reported)     | 96.8  | 90.2  | 85.2   | 90.7  |  2.63  | 4.98  | 11.4   | 6.35  |
+| Click-Here CNN FT             | 92.97 | 89.84 | 81.25  | 88.02 |  2.93  | 5.14  | 13.42  | 7.16  |
+| Click-Here CNN FT-Attention   | 94.48 | 90.77 | 84.91  | 90.05 |  2.88  | 5.24  | 12.10  | 6.74  |
 
 
-### Pascal KP for Adviser  -- Baselines
 
-#### Training Data with No Flip
+
+### Pascal KP for Adviser  -- Baselines (Training Data)
 |                               |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
 |:-----------------------------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
-| Metric                        <td colspan=4> Accuracy           <td colspan=4> Median Error
 | Worst                         | 99.63 | 99.26 | 95.59  | 98.16 | 0.    | 0.71  | 0.     | 0.24  |
 | Mean                          | 100.  | 99.68 | 96.18  | 98.62 | 0.    | 0.12  | 0.     | 0.04  |
 | Median                        | 100.  | 99.79 | 96.18  | 98.66 | 0.    | 0.    | 0.     | 0.0   |
 | Best                          | 100.  | 99.89 | 96.47  | 98.79 | 0.    | 0.    | 0.     | 0.0   |
 
-| One    | Two | Three | Four    | Five  | Six
-| -
-
-<!-- ##### Median Error
-|                               |
-|:-----------------------------:|
-| Worst                         |
-| Mean                          |
-| Median                        |
-| Best                          | -->
-
-
-#### Test Data with No Flip
-
-<!-- #### Accuracy -->
+Â
 
 |                               |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
 |:-----------------------------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
-| **Metric**                        <td colspan=4> **Accuracy**           <td colspan=4> **Median Error**
 | Worst                         | 87.19 | 81.4  | 75.81  | 81.47 |  3.7  | 7.1   | 13.98  | 8.26  |
 | Mean                          | 89.68 | 84.73 | 78.17  | 84.19 |  3.41 | 6.65  | 13.21  | 7.76  |
 | Median                        | 92.17 | 88.71 | 79.35  | 86.74 |  3.25 | 6.18  | 12.71  | 7.38  |
 | Best                          | 95.37 | 92.37 | 87.91  | 91.88 |  2.92 | 5.45  | 11.69  | 6.69  |
 
-<!--
-#### Median Error
-|                               |
-|:-----------------------------:|
-| Worst                         |
-| Mean                          |
-| Median                        |
-| Best                          |
- -->
+
 
 ## Acknowledgements
 
