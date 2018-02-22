@@ -67,15 +67,16 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 ### Pascal KP for Adviser  -- Baselines
 
 #### Training Data with No Flip
-
-|                               <td colspan=4> Accuracy          <td colspan=4> Median Error      |
 |                               |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
 |:-----------------------------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
+| Metric                        <td colspan=4> Accuracy           <td colspan=4> Median Error
 | Worst                         | 99.63 | 99.26 | 95.59  | 98.16 | 0.    | 0.71  | 0.     | 0.24  |
 | Mean                          | 100.  | 99.68 | 96.18  | 98.62 | 0.    | 0.12  | 0.     | 0.04  |
 | Median                        | 100.  | 99.79 | 96.18  | 98.66 | 0.    | 0.    | 0.     | 0.0   |
 | Best                          | 100.  | 99.89 | 96.47  | 98.79 | 0.    | 0.    | 0.     | 0.0   |
 
+| One    | Two | Three | Four    | Five  | Six
+| -
 
 <!-- ##### Median Error
 |                               |
@@ -89,9 +90,10 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 #### Test Data with No Flip
 
 <!-- #### Accuracy -->
-|                               <td colspan=4> Accuracy          <td colspan=4> Median Error      |
+
 |                               |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
 |:-----------------------------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
+| **Metric**                        <td colspan=4> **Accuracy**           <td colspan=4> **Median Error**
 | Worst                         | 87.19 | 81.4  | 75.81  | 81.47 |  3.7  | 7.1   | 13.98  | 8.26  |
 | Mean                          | 89.68 | 84.73 | 78.17  | 84.19 |  3.41 | 6.65  | 13.21  | 7.76  |
 | Median                        | 92.17 | 88.71 | 79.35  | 86.74 |  3.25 | 6.18  | 12.71  | 7.38  |
