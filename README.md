@@ -3,7 +3,7 @@
 By [Mohamed El Banani](http://mbanani.github.io/) and [Jason J. Corso](http://web.eecs.umich.edu/~jjcorso/), University of Michigan
 
 
-## Introduction
+### Introduction
 
 This is the code and data for the work presented in the arXiv tech report, [Adviser Networks](https://arxiv.org/abs/1802.01666).
 
@@ -21,20 +21,33 @@ If you find this work useful in your research, please consider citing:
 If you have any questions, please email me at mbanani@umich.edu.
 
 
-## To Do
+### To Do
 
+- [x] Look at the tasks described by the ICLR 2018 paper -- ["Ask The Right Question"](https://openreview.net/forum?id=S1CChZ-CZ)
+    - While the paper seems to be of relevance at the high level,
+        the problem tackled is very different, and very specific to language QA
+- [x] Better metrics -- include priors calculated properly!
+    - Priors are currently calculated using the same dataset.
+- [ ] Move viewpoint estimation code to Adviser
+    - [x] Figure out a nice way of including everything in the same repo ?!
+    - [ ] Output a saved dictionary that Adviser can easily operate over
 - [ ] Import code from the viewpoint_estimation repository!
     - [x] Move Code!
-    - [ ] Replicate results
-- [ ] Run Adviser on the new attention-FT model
-- [ ] Figure out a way of getting some proper priors on the data! Provide a more thorough analysis of the priors
-- [ ] Compare against Bayesian, Information Theory, (and RL ?) approaches to this problem
-- [ ] Look at the tasks described by the ICLR 2018 paper -- ["Ask The Right Question"](https://openreview.net/forum?id=S1CChZ-CZ)
-- [ ] Move loggin inside of metrics
+    - [ ] Edit dataset wrapper to be more comprehensible
+    - [ ] Replicate results on Caffe model estimates
+    - [ ] Run Adviser on the new attention-FT model
+- [ ] Implement on a different task -- Fine-grained classification
+    - [ ] Augment original dataset wrappers for the task
+    - [ ] Augment AlexNet to operate over multiple branches
+        - Use model pretrained on ImageNet
+        - Zero-center and Normalize input to model
+        - Use attention-based optimization and compare to normal optimization scheme.
+- [ ] Compare against Bayesian, Information Theory, (~~and RL ?~~) approaches to this problem
+- [ ] Move logging inside of metrics
 
-## Results
+### Results
 
-### Pascal3D - Vehicles with Keypoints -- Overall Results
+#### Pascal3D - Vehicles with Keypoints -- Overall Results
 
 We fine-tuned both models on the Pascal 3D+ (Vehicles with Keypoints) dataset.
 Since we suspect that the problem with the replication of the Click-Here CNN model
@@ -45,7 +58,7 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 |:-----------------------------:|:-----:|:-----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|
 | Render For CNN                | 89.26 | 74.36 | 81.93  | 81.85 |  5.16  | 8.53  | 13.46  | 9.05  |
 | Render For CNN FT             | 93.55 | 83.98 | 87.30  | 88.28 |  3.04  | 5.83  | 11.95  | 6.94  |
-| Render For CNN FT (reported)  | 90.6  | 82.4  | 84.1   | 85.7  |  2.93  | 5.63  | 11.Â   | 6.74  |
+| Render For CNN FT (reported)  | 90.6  | 82.4  | 84.1   | 85.7  |  2.93  | 5.63  | 11.7   | 6.74  |
 | Click-Here CNN                | 86.91 | 83.25 | 73.83  | 81.33 |  4.01  | 8.18  | 19.71  | 10.63 |
 | Click-Here CNN (reported)     | 96.8  | 90.2  | 85.2   | 90.7  |  2.63  | 4.98  | 11.4   | 6.35  |
 | Click-Here CNN FT             | 92.97 | 89.84 | 81.25  | 88.02 |  2.93  | 5.14  | 13.42  | 7.16  |
@@ -53,23 +66,24 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 
 
 
+#### Pascal KP for Adviser  -- Baselines
 
-### Pascal KP for Adviser  -- Baselines (Training Data)
-|                               |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
-|:-----------------------------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
-| Worst                         | 99.63 | 99.26 | 95.59  | 98.16 | 0.    | 0.71  | 0.     | 0.24  |
-| Mean                          | 100.  | 99.68 | 96.18  | 98.62 | 0.    | 0.12  | 0.     | 0.04  |
-| Median                        | 100.  | 99.79 | 96.18  | 98.66 | 0.    | 0.    | 0.     | 0.0   |
-| Best                          | 100.  | 99.89 | 96.47  | 98.79 | 0.    | 0.    | 0.     | 0.0   |
+##### Clickhere CNN -- PyTorch Finetuned on Attention
 
-Â
+| Train Set  |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
+|:--------  :|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
+| Worst      | 99.63 | 99.26 | 95.59  | 98.16 | 0.    | 0.71  | 0.     | 0.24  |
+| Mean       | 100.  | 99.68 | 96.18  | 98.62 | 0.    | 0.12  | 0.     | 0.04  |
+| Median     | 100.  | 99.79 | 96.18  | 98.66 | 0.    | 0.    | 0.     | 0.0   |
+| Best       | 100.  | 99.89 | 96.47  | 98.79 | 0.    | 0.    | 0.     | 0.0   |
 
-|                               |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
-|:-----------------------------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
-| Worst                         | 87.19 | 81.4  | 75.81  | 81.47 |  3.7  | 7.1   | 13.98  | 8.26  |
-| Mean                          | 89.68 | 84.73 | 78.17  | 84.19 |  3.41 | 6.65  | 13.21  | 7.76  |
-| Median                        | 92.17 | 88.71 | 79.35  | 86.74 |  3.25 | 6.18  | 12.71  | 7.38  |
-| Best                          | 95.37 | 92.37 | 87.91  | 91.88 |  2.92 | 5.45  | 11.69  | 6.69  |
+
+| Test Set   |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
+|:----------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
+| Worst      | 87.19 | 81.4  | 75.81  | 81.47 |  3.7  | 7.1   | 13.98  | 8.26  |
+| Mean       | 89.68 | 84.73 | 78.17  | 84.19 |  3.41 | 6.65  | 13.21  | 7.76  |
+| Median     | 92.17 | 88.71 | 79.35  | 86.74 |  3.25 | 6.18  | 12.71  | 7.38  |
+| Best       | 95.37 | 92.37 | 87.91  | 91.88 |  2.92 | 5.45  | 11.69  | 6.69  |
 
 
 
