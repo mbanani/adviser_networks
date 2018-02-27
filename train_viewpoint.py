@@ -104,7 +104,7 @@ def main(args):
 
     for epoch in range(0, args.num_epochs):
 
-        if epoch % args.eval_epoch == 0:
+        if epoch % args.eval_epoch == 0 and not args.no_eval:
             if 'pascal' in args.dataset and args.evaluate_train:
                 _, _ = eval_step(   model       = model,
                                     data_loader = train_loader,
@@ -132,7 +132,7 @@ def main(args):
         if args.evaluate_only:
             exit()
         #
-        if epoch % args.save_epoch == 0 and epoch > 0:
+        if epoch % args.save_epoch == 0 and epoch > 0 and not args.no_eval:
 
             args = save_checkpoint(  model      = model,
                                      optimizer  = optimizer,
@@ -206,10 +206,10 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
         optimizer.step()
 
         # Log losses
-        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_azim",  loss_a.data[0] , step=step + i)
-        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_elev",  loss_e.data[0] , step=step + i)
-        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_tilt",  loss_t.data[0] , step=step + i)
-        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_sum", loss.data[0] , step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_azim", float(loss_a.data[0].cpu().numpy())  , step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_elev", float(loss_e.data[0].cpu().numpy())  , step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_tilt", float(loss_t.data[0].cpu().numpy())  , step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_sum",  float(loss.data[0].cpu().numpy())    , step=step + i)
 
         processing_time += time.time() - training_time
 
@@ -222,11 +222,11 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
             curr_epoch_time = (time.time() - epoch_time) * (total_step / (i+1.))
             curr_time_left  = (time.time() - epoch_time) * ((total_step - i) / (i+1.))
 
-            print "Epoch [%d/%d] Step [%d/%d]: Training Loss = %2.5f, Batch Time = %.2f sec, Time Left = %.1f mins." %( epoch, args.num_epochs,
-                                                                                                                        i, total_step,
-                                                                                                                        loss_sum / float(counter),
-                                                                                                                        curr_batch_time,
-                                                                                                                        curr_time_left / 60.)
+            print "Epoch [%d/%d] "%( epoch, args.num_epochs),
+            print "Step [%d/%d]: "%(i, total_step),
+            print "Training Loss = %2.5f, "%(loss_sum / float(counter)),
+            print "Batch Time = %.2f sec, Time Left = %.1f mins." %(curr_batch_time, curr_time_left / 60.)
+
 
             logger.add_scalar_value("Misc/batch time (s)",    curr_batch_time,        step=step + i)
             logger.add_scalar_value("Misc/Train_%",           curr_train_per,         step=step + i)
@@ -234,9 +234,7 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
             logger.add_scalar_value("Misc/time left (min)",   curr_time_left / 60.,   step=step + i)
 
             # Reset counters
-            counter = 0
-            loss_sum = 0.
-            processing_time = 0
+            counter = loss_sum = processing_time = 0.
             batch_time = time.time()
 
         if valid_loader != None and i % args.eval_step == 0 and i > 0:
@@ -260,7 +258,7 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
     epoch_loss_e    = 0.
     epoch_loss_t    = 0.
     epoch_loss      = 0.
-    results_dict    = vp_metrics(args.num_classes)
+    results_dict    = vp_metrics(args.num_classes, data_split = args.dataset + '_' + datasplit)
 
     for i, (images, azim_label, elev_label, tilt_label, obj_class, kp_map, kp_class, key_uid) in enumerate(data_loader):
 
@@ -290,7 +288,12 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
         #                     [azim.data.cpu().numpy(), elev.data.cpu().numpy(), tilt.data.cpu().numpy()],
         #                     [azim_label.data.cpu().numpy(), elev_label.data.cpu().numpy(), tilt_label.data.cpu().numpy()])
 
+    # calculate metrics
     type_accuracy, type_total, type_geo_dist = results_dict.metrics()
+
+    # save dictionary
+    if args.save_dict:
+        results_dict.save_dict(args.kp_dict_name)
 
     geo_dist_median = [np.median(type_dist) * 180. / np.pi for type_dist in type_geo_dist if type_dist != [] ]
     type_accuracy   = [ type_accuracy[i] * 100. for i in range(0, len(type_accuracy)) if  type_total[i] > 0]
@@ -340,19 +343,21 @@ if __name__ == '__main__':
     parser.add_argument('--lr',              type=float, default=0.01)
     parser.add_argument('--optimizer',       type=str,default='sgd')
 
-    # experiment details34182.blindspot            ...B51_Alpha_0_2 madantrg        27:49:24 R batch
-
+    # experiment details
     parser.add_argument('--dataset',         type=str, default='pascalKP')
     parser.add_argument('--model',           type=str, default='pretrained_clickhere')
     parser.add_argument('--experiment_name', type=str, default= 'Test')
     parser.add_argument('--evaluate_only',   action="store_true",default=False)
     parser.add_argument('--evaluate_train',  action="store_true",default=False)
+    parser.add_argument('--no_eval',         action="store_true",default=False)
+    parser.add_argument('--save_dict',       action="store_true",default=False)
     parser.add_argument('--flip',            action="store_true",default=False)
     parser.add_argument('--just_attention',  action="store_true",default=False)
     parser.add_argument('--num_classes',     type=int, default=12)
     parser.add_argument('--resume',          type=str, default=None)
     parser.add_argument('--world_size',      type=int, default=1)
     parser.add_argument('--main',            action="store_true",default=False)
+    parser.add_argument('--kp_dict_name',    type=str, default="")
 
 
     args = parser.parse_args()
