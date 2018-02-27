@@ -42,11 +42,12 @@ def angle2dcm(xRot, yRot, zRot, deg_type='deg'):
 
 class vp_metrics(object):
 
-    def __init__(self, num_classes = 12):
+    def __init__(self, num_classes = 12, data_split = 'test'):
         self.keypoint_dict  = dict()
         self.num_classes    = num_classes
         self.class_ranges   = range(0, 360*(self.num_classes + 1), 360)
         self.threshold      = np.pi / 6.
+        self.data_split     = data_split
 
     """
         Updates the keypoint dictionary
@@ -135,6 +136,8 @@ class vp_metrics(object):
         self.calculate_performance_baselines()
         return type_accuracy, type_total, type_geo_dist
 
+    def save_dict(self, dict_name):
+        np.save(dict_name + "_" + self.data_split + '_kp_dict.npy', self.keypoint_dict)
 
     def calculate_performance_baselines(self, mode = 'real'):
 
