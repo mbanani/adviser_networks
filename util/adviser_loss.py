@@ -16,15 +16,10 @@ class adviser_loss(nn.Module):
 
         self.num_classes = num_classes
         self.loss        = loss
-        self.weights     = np.ones(12) if weights is None else weights
+        self.weights     = np.ones(3) if weights is None else weights
 
-        # self.ranges = [0, 12, 24, 34]
-        self.ranges = [0, 0,  0,  0,  0, 12, 24, 24, 24, 34, 34,  34,  34]
-        # if self.num_classes == 12:
-        #     self.ranges = [0, 8, 19, 26, 33, 45, 57, 67, 79, 89, 99, 116, 124]
-        # elif self.num_classes == 3:
-        # else:
-        #     exit()
+        self.ranges = [0, 12, 24, 34]
+
 
         assert loss in ['BCE', 'KL', 'MSE']
 

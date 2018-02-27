@@ -1,22 +1,17 @@
 import torch
+
 import torch.nn as nn
+import numpy    as np
+
 from torch.autograd import Function, Variable
-
-from functools                              import reduce
-from torch.legacy.nn.Module                 import Module as LegacyModule
-from torch.legacy.nn.utils                  import clear
-from torch.nn._functions.thnn.normalization import CrossMapLRN2d
-
-import numpy as np
-
 
 class alexAdviser(nn.Module):
     def __init__(self, num_classes = 34, weights = None, weights_path = None):
         super(alexAdviser, self).__init__()
 
         # Normalization layers
-        norm1 = Lambda(lambda x,lrn=SpatialCrossMapLRN_temp(*(5, 0.0001, 0.75, 1)): Variable(lrn.forward(x.data)))
-        norm2 = Lambda(lambda x,lrn=SpatialCrossMapLRN_temp(*(5, 0.0001, 0.75, 1)): Variable(lrn.forward(x.data)))
+        norm1 = nn.LocalResponseNorm(5, 0.0001, 0.75, 1)
+        norm2 = nn.LocalResponseNorm(5, 0.0001, 0.75, 1)
 
         # conv layers
         conv1 = nn.Conv2d(3, 96, (11, 11), (4,4))
@@ -36,7 +31,6 @@ class alexAdviser(nn.Module):
         conv5 = nn.Conv2d(384,256,(3, 3),(1, 1),(1, 1),1,2)
         relu5 = nn.ReLU()
         pool5 = nn.MaxPool2d((3, 3),(2, 2),(0, 0),ceil_mode=True)
-
 
         # inference layers
         fc6     = nn.Linear(9216,4096)
@@ -68,13 +62,13 @@ class alexAdviser(nn.Module):
             conv3.bias.data.copy_(state_dict['conv3']['bias'])
             conv4.weight.data.copy_(state_dict['conv4']['weight'])
             conv4.bias.data.copy_(state_dict['conv4']['bias'])
-
             conv5.weight.data.copy_(state_dict['conv5']['weight'])
             conv5.bias.data.copy_(state_dict['conv5']['bias'])
-            fc6.weight.data.copy_(state_dict['fc6']['weight'])
-            fc6.bias.data.copy_(state_dict['fc6']['bias'])
-            fc7.weight.data.copy_(state_dict['fc7']['weight'])
-            fc7.bias.data.copy_(state_dict['fc7']['bias'])
+
+            # fc6.weight.data.copy_(state_dict['fc6']['weight'])
+            # fc6.bias.data.copy_(state_dict['fc6']['bias'])
+            # fc7.weight.data.copy_(state_dict['fc7']['weight'])
+            # fc7.bias.data.copy_(state_dict['fc7']['bias'])
 
         self.conv   = nn.Sequential( conv1, relu1, pool1, norm1,
                                     conv2, relu2, pool2, norm2,
@@ -86,168 +80,18 @@ class alexAdviser(nn.Module):
                                     fc7,    relu7,  drop7,
                                     infer)
 
+        self.init_weights()
+
+    def init_weights(self):
+
+        self.infer[0].weight.data.normal_(0.0, 0.01)
+        self.infer[0].bias.data.fill_(0)
+        self.infer[3].weight.data.normal_(0.0, 0.01)
+        self.infer[3].bias.data.fill_(0)
+        self.infer[6].weight.data.normal_(0.0, 0.01)
+        self.infer[6].bias.data.fill_(0)
 
     def forward(self, x):
         x = self.conv(x)
         x = x.view(x.size(0), -1)
         return self.infer(x)
-
-
-class SpatialCrossMapLRN_temp(LegacyModule):
-
-	def __init__(self, size, alpha=1e-4, beta=0.75, k=1, gpuDevice=0):
-		super(SpatialCrossMapLRN_temp, self).__init__()
-
-		self.size = size
-		self.alpha = alpha
-		self.beta = beta
-		self.k = k
-		self.scale = None
-		self.paddedRatio = None
-		self.accumRatio = None
-		self.gpuDevice = gpuDevice
-
-	def updateOutput(self, input):
-		assert input.dim() == 4
-
-		if self.scale is None:
-			self.scale = input.new()
-
-		if self.output is None:
-			self.output = input.new()
-
-		batchSize = input.size(0)
-		channels = input.size(1)
-		inputHeight = input.size(2)
-		inputWidth = input.size(3)
-
-		if input.is_cuda:
-			self.output = self.output.cuda(self.gpuDevice)
-			self.scale = self.scale.cuda(self.gpuDevice)
-
-		self.output.resize_as_(input)
-		self.scale.resize_as_(input)
-
-		# use output storage as temporary buffer
-		inputSquare = self.output
-		torch.pow(input, 2, out=inputSquare)
-
-		prePad = int((self.size - 1) / 2 + 1)
-		prePadCrop = channels if prePad > channels else prePad
-
-		scaleFirst = self.scale.select(1, 0)
-		scaleFirst.zero_()
-		# compute first feature map normalization
-		for c in range(prePadCrop):
-			scaleFirst.add_(inputSquare.select(1, c))
-
-		# reuse computations for next feature maps normalization
-		# by adding the next feature map and removing the previous
-		for c in range(1, channels):
-			scalePrevious = self.scale.select(1, c - 1)
-			scaleCurrent = self.scale.select(1, c)
-			scaleCurrent.copy_(scalePrevious)
-			if c < channels - prePad + 1:
-				squareNext = inputSquare.select(1, c + prePad - 1)
-				scaleCurrent.add_(1, squareNext)
-
-			if c > prePad:
-				squarePrevious = inputSquare.select(1, c - prePad)
-				scaleCurrent.add_(-1, squarePrevious)
-
-		self.scale.mul_(self.alpha / self.size).add_(self.k)
-
-		torch.pow(self.scale, -self.beta, out=self.output)
-		self.output.mul_(input)
-
-		return self.output
-
-	def updateGradInput(self, input, gradOutput):
-		assert input.dim() == 4
-
-		batchSize = input.size(0)
-		channels = input.size(1)
-		inputHeight = input.size(2)
-		inputWidth = input.size(3)
-
-		if self.paddedRatio is None:
-			self.paddedRatio = input.new()
-		if self.accumRatio is None:
-			self.accumRatio = input.new()
-		self.paddedRatio.resize_(channels + self.size - 1, inputHeight, inputWidth)
-		self.accumRatio.resize_(inputHeight, inputWidth)
-
-		cacheRatioValue = 2 * self.alpha * self.beta / self.size
-		inversePrePad = int(self.size - (self.size - 1) / 2)
-
-		self.gradInput.resize_as_(input)
-		torch.pow(self.scale, -self.beta, out=self.gradInput).mul_(gradOutput)
-
-		self.paddedRatio.zero_()
-		paddedRatioCenter = self.paddedRatio.narrow(0, inversePrePad, channels)
-		for n in range(batchSize):
-			torch.mul(gradOutput[n], self.output[n], out=paddedRatioCenter)
-			paddedRatioCenter.div_(self.scale[n])
-			torch.sum(self.paddedRatio.narrow(0, 0, self.size - 1), 0, out=self.accumRatio)
-			for c in range(channels):
-				self.accumRatio.add_(self.paddedRatio[c + self.size - 1])
-				self.gradInput[n][c].addcmul_(-cacheRatioValue, input[n][c], self.accumRatio)
-				self.accumRatio.add_(-1, self.paddedRatio[c])
-
-		return self.gradInput
-
-	def clearState(self):
-		clear(self, 'scale', 'paddedRatio', 'accumRatio')
-		return super(SpatialCrossMapLRN_temp, self).clearState()
-
-# class SpatialCrossMapLRNFunc(Function):
-#      def __init__(self, size, alpha=1e-4, beta=0.75, k=1):
-#          self.size = size
-#          self.alpha = alpha
-#          self.beta = beta
-#          self.k = k
-#
-#      def forward(self, input):
-#          self.save_for_backward(input)
-#          self.lrn = SpatialCrossMapLRNOld(self.size, self.alpha, self.beta, self.k)
-#          self.lrn.type(input.type())
-#          return self.lrn.forward(input)
-#
-#      def backward(self, grad_output):
-#          input, = self.saved_tensors
-#          return self.lrn.backward(input, grad_output)
-#
-# class SpatialCrossMapLRN(nn.Module):
-#      def __init__(self, size, alpha=1e-4, beta=0.75, k=1):
-#          super(SpatialCrossMapLRN, self).__init__()
-#          self.size = size
-#          self.alpha = alpha
-#          self.beta = beta
-#          self.k = k
-#
-#      def forward(self, input):
-#          return CrossMapLRN2d(self.size, alpha = self.alpha, beta = self.beta, k = self.k)(input)
-#          # return SpatialCrossMapLRNFunc(self.size, alpha = self.alpha, beta = self.beta, k = self.k)(input)
-
-class LambdaBase(nn.Sequential):
-    def __init__(self, fn, *args):
-        super(LambdaBase, self).__init__(*args)
-        self.lambda_func = fn
-
-    def forward_prepare(self, input):
-        output = []
-        for module in self._modules.values():
-            output.append(module(input))
-        return output if output else input
-
-class Lambda(LambdaBase):
-    def forward(self, input):
-        return self.lambda_func(self.forward_prepare(input))
-
-class LambdaMap(LambdaBase):
-    def forward(self, input):
-        return list(map(self.lambda_func,self.forward_prepare(input)))
-
-class LambdaReduce(LambdaBase):
-    def forward(self, input):
-        return reduce(self.lambda_func,self.forward_prepare(input))
