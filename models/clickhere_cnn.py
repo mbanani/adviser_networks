@@ -5,19 +5,13 @@ from torch.autograd import Variable
 import numpy as np
 from IPython import embed
 
-# Imports for legacy code!
-from functools                              import reduce
-from torch.legacy.nn.Module                 import Module as LegacyModule
-from torch.legacy.nn.utils                  import clear
-from torch.nn._functions.thnn.normalization import CrossMapLRN2d
-
 class clickhere_cnn(nn.Module):
     def __init__(self, weights_path = None, num_classes = 12):
         super(clickhere_cnn, self).__init__()
 
         # Normalization layers
-        norm1 = Lambda(lambda x,lrn=SpatialCrossMapLRN_temp(*(5, 0.0001, 0.75, 1)): Variable(lrn.forward(x.data)))
-        norm2 = Lambda(lambda x,lrn=SpatialCrossMapLRN_temp(*(5, 0.0001, 0.75, 1)): Variable(lrn.forward(x.data)))
+        norm1 = nn.LocalResponseNorm(5, 0.0001, 0.75, 1)
+        norm2 = nn.LocalResponseNorm(5, 0.0001, 0.75, 1)
 
         # conv layers
         conv1 = nn.Conv2d(3, 96, (11, 11), (4,4))
@@ -125,7 +119,7 @@ class clickhere_cnn(nn.Module):
         self.pool_map    = nn.Sequential(nn.MaxPool2d( (5,5), (5,5), (1,1), ceil_mode=True))
         self.map_linear  = nn.Sequential( kp_map )
         self.cls_linear  = nn.Sequential( kp_class )
-        self.kp_softmax  = nn.Sequential( kp_fuse, nn.Softmax() )
+        self.kp_softmax  = nn.Sequential( kp_fuse, nn.Softmax(dim = -1) )
 
         self.infer = nn.Sequential(fc6, relu6, drop6, fc7, relu7, drop7)
         self.fusion = nn.Sequential(fc8, relu8, drop8)
@@ -168,169 +162,41 @@ class clickhere_cnn(nn.Module):
 
     def forward(self, images, kp_map, kp_class):
         # Image Stream
-        features_conv4 = self.conv4(images)
-        features_conv5 = self.conv5(features_conv4)
-        features_conv5 = features_conv5.view(features_conv5.size(0), -1)
-        features_fc7   = self.infer(features_conv5)
+        images = self.conv4(images)
 
         # Keypoint Stream
         # KP map scaling performed in dataset class
         # kp_map       = self.pool_map(kp_map)
-        kp_map_flat  = kp_map.view(kp_map.size(0), -1)
-        features_map = self.map_linear(kp_map_flat)
-        features_cls = self.cls_linear(kp_class)
+        kp_map      = kp_map.view(kp_map.size(0), -1)
+        kp_map      = self.map_linear(kp_map)
+        kp_class    = self.cls_linear(kp_class)
 
         # Concatenate the two keypoint feature vectors
         # In deploy file, map over class
-        features_kp = torch.cat([features_map, features_cls], dim = 1)
+        kp_map  = torch.cat([kp_map, kp_class], dim = 1)
 
         # Softmax followed by reshaping into a 13x13
         # Conv4 as shape batch * 384 * 13 * 13
-        features_kp = self.kp_softmax(features_kp)
-        features_kp = features_kp.view(kp_map.size(0),1, 13, 13)
+        kp_map  = self.kp_softmax(kp_map)
+        kp_map  = kp_map.view(kp_map.size(0),1, 13, 13)
 
         # Attention -> Elt. wise product, then summation over x and y dims
-        attention_mul   = features_kp * features_conv4
-        attention_kp    = attention_mul.sum(3).sum(2)
+        kp_map  = kp_map * images
+        kp_map  = kp_map.sum(3).sum(2)
+
+        # Continue from conv4
+        images = self.conv5(images)
+        images = images.view(images.size(0), -1)
+        images = self.infer(images)
+
 
         # Concatenate fc7 and attended features
-        features_fused = torch.cat([features_fc7, attention_kp], dim = 1)
-        features_fused = self.fusion(features_fused)
+        images = torch.cat([images, kp_map], dim = 1)
+        images = self.fusion(images)
 
         # Final inference
-        azim = self.azim(features_fused)
-        elev = self.elev(features_fused)
-        tilt = self.tilt(features_fused)
+        azim = self.azim(images)
+        elev = self.elev(images)
+        tilt = self.tilt(images)
 
         return azim, tilt, elev
-
-class SpatialCrossMapLRN_temp(LegacyModule):
-
-	def __init__(self, size, alpha=1e-4, beta=0.75, k=1, gpuDevice=0):
-		super(SpatialCrossMapLRN_temp, self).__init__()
-
-		self.size = size
-		self.alpha = alpha
-		self.beta = beta
-		self.k = k
-		self.scale = None
-		self.paddedRatio = None
-		self.accumRatio = None
-		self.gpuDevice = gpuDevice
-
-	def updateOutput(self, input):
-		assert input.dim() == 4
-
-		if self.scale is None:
-			self.scale = input.new()
-
-		if self.output is None:
-			self.output = input.new()
-
-		batchSize = input.size(0)
-		channels = input.size(1)
-		inputHeight = input.size(2)
-		inputWidth = input.size(3)
-
-		if input.is_cuda:
-			self.output = self.output.cuda(self.gpuDevice)
-			self.scale = self.scale.cuda(self.gpuDevice)
-
-		self.output.resize_as_(input)
-		self.scale.resize_as_(input)
-
-		# use output storage as temporary buffer
-		inputSquare = self.output
-		torch.pow(input, 2, out=inputSquare)
-
-		prePad = int((self.size - 1) / 2 + 1)
-		prePadCrop = channels if prePad > channels else prePad
-
-		scaleFirst = self.scale.select(1, 0)
-		scaleFirst.zero_()
-		# compute first feature map normalization
-		for c in range(prePadCrop):
-			scaleFirst.add_(inputSquare.select(1, c))
-
-		# reuse computations for next feature maps normalization
-		# by adding the next feature map and removing the previous
-		for c in range(1, channels):
-			scalePrevious = self.scale.select(1, c - 1)
-			scaleCurrent = self.scale.select(1, c)
-			scaleCurrent.copy_(scalePrevious)
-			if c < channels - prePad + 1:
-				squareNext = inputSquare.select(1, c + prePad - 1)
-				scaleCurrent.add_(1, squareNext)
-
-			if c > prePad:
-				squarePrevious = inputSquare.select(1, c - prePad)
-				scaleCurrent.add_(-1, squarePrevious)
-
-		self.scale.mul_(self.alpha / self.size).add_(self.k)
-
-		torch.pow(self.scale, -self.beta, out=self.output)
-		self.output.mul_(input)
-
-		return self.output
-
-	def updateGradInput(self, input, gradOutput):
-		assert input.dim() == 4
-
-		batchSize = input.size(0)
-		channels = input.size(1)
-		inputHeight = input.size(2)
-		inputWidth = input.size(3)
-
-		if self.paddedRatio is None:
-			self.paddedRatio = input.new()
-		if self.accumRatio is None:
-			self.accumRatio = input.new()
-		self.paddedRatio.resize_(channels + self.size - 1, inputHeight, inputWidth)
-		self.accumRatio.resize_(inputHeight, inputWidth)
-
-		cacheRatioValue = 2 * self.alpha * self.beta / self.size
-		inversePrePad = int(self.size - (self.size - 1) / 2)
-
-		self.gradInput.resize_as_(input)
-		torch.pow(self.scale, -self.beta, out=self.gradInput).mul_(gradOutput)
-
-		self.paddedRatio.zero_()
-		paddedRatioCenter = self.paddedRatio.narrow(0, inversePrePad, channels)
-		for n in range(batchSize):
-			torch.mul(gradOutput[n], self.output[n], out=paddedRatioCenter)
-			paddedRatioCenter.div_(self.scale[n])
-			torch.sum(self.paddedRatio.narrow(0, 0, self.size - 1), 0, out=self.accumRatio)
-			for c in range(channels):
-				self.accumRatio.add_(self.paddedRatio[c + self.size - 1])
-				self.gradInput[n][c].addcmul_(-cacheRatioValue, input[n][c], self.accumRatio)
-				self.accumRatio.add_(-1, self.paddedRatio[c])
-
-		return self.gradInput
-
-	def clearState(self):
-		clear(self, 'scale', 'paddedRatio', 'accumRatio')
-		return super(SpatialCrossMapLRN_temp, self).clearState()
-
-
-class LambdaBase(nn.Sequential):
-    def __init__(self, fn, *args):
-        super(LambdaBase, self).__init__(*args)
-        self.lambda_func = fn
-
-    def forward_prepare(self, input):
-        output = []
-        for module in self._modules.values():
-            output.append(module(input))
-        return output if output else input
-
-class Lambda(LambdaBase):
-    def forward(self, input):
-        return self.lambda_func(self.forward_prepare(input))
-
-class LambdaMap(LambdaBase):
-    def forward(self, input):
-        return list(map(self.lambda_func,self.forward_prepare(input)))
-
-class LambdaReduce(LambdaBase):
-    def forward(self, input):
-        return reduce(self.lambda_func,self.forward_prepare(input))
