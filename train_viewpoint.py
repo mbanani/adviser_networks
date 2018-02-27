@@ -278,9 +278,9 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
 
         # embed()
         object_class  = to_var(obj_class)
-        epoch_loss_a += criterion(azim, azim_label, object_class).data[0]
-        epoch_loss_e += criterion(elev, elev_label, object_class).data[0]
-        epoch_loss_t += criterion(tilt, tilt_label, object_class).data[0]
+        epoch_loss_a += criterion(azim, azim_label, object_class).data[0].cpu().numpy()
+        epoch_loss_e += criterion(elev, elev_label, object_class).data[0].cpu().numpy()
+        epoch_loss_t += criterion(tilt, tilt_label, object_class).data[0].cpu().numpy()
 
         results_dict.update_dict( key_uid,
                             [azim.data.cpu().numpy(), elev.data.cpu().numpy(), tilt.data.cpu().numpy()],
