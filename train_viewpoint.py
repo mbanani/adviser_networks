@@ -11,7 +11,7 @@ import torch
 
 from util                       import ViewpointLoss, tf_logger, Paths
 from util                       import get_data_loaders, vp_metrics
-from models                     import clickhere_cnn, test_clickhere_cnn
+from models                     import clickhere_cnn
 from util.torch_utils           import to_var, save_checkpoint
 from torch.optim.lr_scheduler   import MultiStepLR
 
@@ -38,8 +38,6 @@ def main(args):
     elif args.model == 'pretrained_clickhere':
         assert Paths.clickhere_weights != None, "Error: Set clickhere_weights weights path in util/Paths.py."
         model = clickhere_cnn(weights_path = Paths.clickhere_weights, num_classes = args.num_classes)
-    elif args.model == 'test_clickhere':
-        model = test_clickhere_cnn(num_classes = args.num_classes)
     else:
         assert False, "Error: unknown model choice."
 
