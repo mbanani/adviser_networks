@@ -26,27 +26,23 @@ def main(args):
                                                                 model               = args.model,
                                                                 flip                = args.flip,
                                                                 num_classes         = args.num_classes,
-                                                                temperature         = args.temperature,
-                                                                valid               = 0.1)
+                                                                valid               = 0.0)
 
     print "#############  Initiate Model     ##############"
     if args.model == 'alexAdviser':
         assert Paths.clickhere_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
         model = alexAdviser(weights = 'npy', weights_path = Paths.clickhere_weights)
-    elif args.model == 'alexAdviserRCNN':
-        assert Paths.clickhere_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
-        model = alexAdviser(weights = 'pth', weights_path = Paths.render4cnn_weights)
     else:
         assert False, "Error: unknown model choice."
 
     if args.loss == 'MSE':
-        metrics_train = adviser_metrics(train_loader.dataset.performance_dict, regression=True )
-        metrics_valid = adviser_metrics(valid_loader.dataset.performance_dict, regression=True )
-        metrics_test  = adviser_metrics(test_loader.dataset.performance_dict,  regression=True )
+        metrics_train = adviser_metrics(train_loader.dataset.kp_dict, regression=True )
+        # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict, regression=True )
+        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict,  regression=True )
     else:
-        metrics_train = adviser_metrics(train_loader.dataset.performance_dict)
-        metrics_valid = adviser_metrics(valid_loader.dataset.performance_dict)
-        metrics_test  = adviser_metrics(test_loader.dataset.performance_dict)
+        metrics_train = adviser_metrics(train_loader.dataset.kp_dict)
+        # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict)
+        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict)
 
     # Loss functions
     criterion = adviser_loss(num_classes = args.num_classes, weights = train_loader.dataset.loss_weights, loss = args.loss)
@@ -63,9 +59,9 @@ def main(args):
     else:
         assert False, "Error: Unknown choice for optimizer."
 
-    if args.world_size > 1:
-        print "Parallelizing Model"
-        model = torch.nn.DataParallel(model, device_ids = range(0, args.world_size))
+    # if args.world_size > 1:
+    #     print "Parallelizing Model"
+    #     model = torch.nn.DataParallel(model, device_ids = range(0, args.world_size))
 
     # Train on GPU if available
     if torch.cuda.is_available():
@@ -287,7 +283,7 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate_only',   action="store_true",default=False)
     parser.add_argument('--evaluate_train',  action="store_true",default=False)
     parser.add_argument('--flip',            action="store_true",default=False)
-    parser.add_argument('--num_classes',     type=int, default=12)
+    parser.add_argument('--num_classes',     type=int, default=34)
     parser.add_argument('--temperature',     type=float, default=1.0)
     parser.add_argument('--world_size',      type=int, default=1)
 

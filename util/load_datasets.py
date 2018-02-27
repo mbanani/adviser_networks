@@ -2,7 +2,7 @@ import os,sys, math
 import torch
 import numpy                    as np
 import torchvision.transforms   as transforms
-from datasets                   import pascal3d_kp
+from datasets                   import pascal3d_kp, advisee_dataset
 import torch.utils.data.distributed
 
 from IPython import embed
@@ -37,8 +37,19 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
         csv_train = os.path.join(root_dir, 'data/pascal3d_kp_train.csv')
         csv_test  = os.path.join(root_dir, 'data/pascal3d_kp_valid.csv')
 
-        train_set = pascal3d_kp(csv_train, dataset_root= dataset_root, transform = train_transform, im_size = image_size, num_classes = num_classes)
-        test_set  = pascal3d_kp(csv_test,  dataset_root= dataset_root, transform = test_transform,  im_size = image_size, num_classes = num_classes)
+        train_set = pascal3d_kp(csv_train, dataset_root= dataset_root, transform = alex_transform, im_size = image_size, num_classes = num_classes)
+        test_set  = pascal3d_kp(csv_test,  dataset_root= dataset_root, transform = alex_transform,  im_size = image_size, num_classes = num_classes)
+
+    elif dataset == "advisee_full":
+
+        kp_dict_train   = np.load(Paths.kp_dict_chcnn_ftAtt_train).item()
+        kp_dict_test    = np.load(Paths.kp_dict_chcnn_ftAtt_test).item()
+
+        train_set       = Adviser_Dataset(kp_dict_train, dataset_root = dataset_root, transform = alex_transform)
+        train_set       = Adviser_Dataset(kp_dict_test,  dataset_root = dataset_root, transform = alex_transform)
+
+        valid = 0.0
+        flip  = False
 
     else:
         print "Error in load_datasets: Dataset name not defined."
