@@ -28,11 +28,11 @@ If you have any questions, please email me at mbanani@umich.edu.
         the problem tackled is very different, and very specific to language QA
 - [x] Better metrics -- include priors calculated properly!
     - Priors are currently calculated using the same dataset.
-- [ ] Move viewpoint estimation code to Adviser
+- [x] Move viewpoint estimation code to Adviser
     - [x] Figure out a nice way of including everything in the same repo ?!
     - [x] Remove dependancy on old weights (NPY and PTH)
-    - [ ] Output a saved dictionary that Adviser can easily operate over
-- [ ] Import code from the viewpoint_estimation repository!
+    - [x] Output a saved dictionary that Adviser can easily operate over
+- [ ] Import adviser code from the viewpoint_estimation repository!
     - [x] Move Code!
     - [ ] Edit dataset wrapper to be more comprehensible
     - [ ] Replicate results on Caffe model estimates
@@ -46,6 +46,7 @@ If you have any questions, please email me at mbanani@umich.edu.
 - [ ] Compare against Bayesian, Information Theory, (~~and RL ?~~) approaches to this problem
 - [ ] Move logging inside of metrics
 - [ ] Add `with torch.no_grad():` to prevent gradient calculation for evaluation
+- [ ] Fix error with `loss_weights`
 
 ### Results
 
