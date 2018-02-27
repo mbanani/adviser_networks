@@ -145,7 +145,10 @@ class pascal3d_kp(torch.utils.data.Dataset):
                 kp_loc[1] = float(kp_loc[1]-bbox[1])/float(bbox[3]-bbox[1])
 
                 # Convert to RGB, crop, and resize
-                img = img.convert('RGB')
+                # img = img.convert('RGB')
+                r, g, b = img.split()
+                img = Image.merge("RGB", (b, g, r))
+
                 img = img.crop(box=bbox)
                 img = img.resize( (self.img_size, self.img_size), Image.LANCZOS)
 
