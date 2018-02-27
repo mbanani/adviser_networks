@@ -37,7 +37,9 @@ def main(args):
         model = clickhere_cnn(num_classes = args.num_classes)
     elif args.model == 'pretrained_clickhere':
         assert Paths.clickhere_weights != None, "Error: Set clickhere_weights weights path in util/Paths.py."
-        model = clickhere_cnn(weights_path = Paths.clickhere_weights, num_classes = args.num_classes)
+        model   = clickhere_cnn(num_classes = args.num_classes)
+        weights = torch.load(Paths.clickhere_weights)
+        model.load_state_dict(weights['model_state_dict'])
     else:
         assert False, "Error: unknown model choice."
 
@@ -96,7 +98,7 @@ def main(args):
         model.cuda()
 
 
-    print "Time to initialize take: ", time.time() - initialization_time
+    print "Initialization Time (s) : ", time.time() - initialization_time
     print "#############  Start Training     ##############"
     total_step = len(train_loader)
 

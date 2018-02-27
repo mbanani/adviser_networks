@@ -30,6 +30,7 @@ If you have any questions, please email me at mbanani@umich.edu.
     - Priors are currently calculated using the same dataset.
 - [ ] Move viewpoint estimation code to Adviser
     - [x] Figure out a nice way of including everything in the same repo ?!
+    - [x] Remove dependancy on old weights (NPY and PTH)
     - [ ] Output a saved dictionary that Adviser can easily operate over
 - [ ] Import code from the viewpoint_estimation repository!
     - [x] Move Code!
@@ -44,6 +45,7 @@ If you have any questions, please email me at mbanani@umich.edu.
         - Use attention-based optimization and compare to normal optimization scheme.
 - [ ] Compare against Bayesian, Information Theory, (~~and RL ?~~) approaches to this problem
 - [ ] Move logging inside of metrics
+- [ ] Add `with torch.no_grad():` to prevent gradient calculation for evaluation
 
 ### Results
 
@@ -71,7 +73,7 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 ##### Clickhere CNN -- PyTorch Finetuned on Attention
 
 | Train Set  |  bus  | car   | m.bike | mean  |  bus  | car   | m.bike | mean  |
-|:--------  :|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
+|:----------:|:-----:|:-----:|:------:|:-----:|:-----:|:-----:|:------:|:-----:|
 | Worst      | 99.63 | 99.26 | 95.59  | 98.16 | 0.    | 0.71  | 0.     | 0.24  |
 | Mean       | 100.  | 99.68 | 96.18  | 98.62 | 0.    | 0.12  | 0.     | 0.04  |
 | Median     | 100.  | 99.79 | 96.18  | 98.66 | 0.    | 0.    | 0.     | 0.0   |
