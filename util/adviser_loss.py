@@ -14,7 +14,7 @@ class adviser_loss(nn.Module):
     def __init__(self, num_classes, loss = 'BCE', weights = None):
         super(adviser_loss, self).__init__()
 
-        self.num_classes = num_classes
+        # self.num_classes = num_classes
         self.loss        = loss
         self.weights     = np.ones(3) if weights is None else weights
 
@@ -28,7 +28,7 @@ class adviser_loss(nn.Module):
         :param preds:   Angle predictions (batch_size, 360 x num_classes)
         :param targets: Angle labels (batch_size, 360 x num_classes)
         :return: Loss. Loss is a variable which may have a backward pass performed.
-        Apply softmax over the preds, and then apply geometrics loss
+        Apply Softmax over the preds, and then apply geometrics loss
         """
         # Set absolute minimum for numerical stability (assuming float16 - 6x10^-5)
         # preds = F.softmax(preds.float())
@@ -42,6 +42,7 @@ class adviser_loss(nn.Module):
 
 
         if torch.cuda.is_available():
+            obj_classes = obj_classes.cuda()
             weights = weights.cuda()
             loss_0    = loss_0.cuda()
             loss_1    = loss_1.cuda()
@@ -52,95 +53,44 @@ class adviser_loss(nn.Module):
         loss_0    = torch.autograd.Variable(loss_0)
         loss_1    = torch.autograd.Variable(loss_1)
         loss_2    = torch.autograd.Variable(loss_2)
+        losses    = [loss_0, loss_1, loss_2]
         weights = torch.autograd.Variable(weights)
 
 
         if self.loss == 'KL':
             for inst_id in range(batch_size):
                 curr_class  = obj_classes[inst_id]
-                if curr_class == 4:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
+                start_index = self.ranges[curr_class]
+                end_index   = self.ranges[curr_class + 1]
 
-                    loss_0 += weights[curr_class] * F.kl_div(   F.softmax(preds[inst_id, start_index:end_index]),
-                                                                F.softmax(labels[inst_id, start_index:end_index]),
+                losses[curr_class] += weights[curr_class] * F.kl_div(   F.softmax(preds[inst_id, start_index:end_index], dim=-1),
+                                                                F.softmax(labels[inst_id, start_index:end_index], dim=-1),
                                                                 size_average=False)
-                elif curr_class == 5:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
-
-                    loss_1 += weights[curr_class] * F.kl_div(   F.softmax(preds[inst_id, start_index:end_index]),
-                                                                F.softmax(labels[inst_id, start_index:end_index]),
-                                                                size_average=False)
-                elif curr_class == 8:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
-
-                    loss_2 += weights[curr_class] * F.kl_div(   F.softmax(preds[inst_id, start_index:end_index]),
-                                                                F.softmax(labels[inst_id, start_index:end_index]),
-                                                                size_average=False)
-                else:
-                    embed()
-                    exit()
 
 
         elif self.loss == 'BCE':
             for inst_id in range(batch_size):
                 curr_class  = obj_classes[inst_id]
                 # embed()
-                if curr_class == 4:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
 
-                    loss_0 += weights[curr_class] * F.binary_cross_entropy(   F.softmax(preds[inst_id, start_index:end_index]),
-                                                                F.softmax(labels[inst_id, start_index:end_index]),
-                                                                size_average=False)
-                elif curr_class == 5:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
+                start_index = self.ranges[curr_class]
+                end_index   = self.ranges[curr_class + 1]
 
-                    loss_1 += weights[curr_class] * F.binary_cross_entropy(   F.softmax(preds[inst_id, start_index:end_index]),
-                                                                F.softmax(labels[inst_id, start_index:end_index]),
-                                                                size_average=False)
-                elif curr_class == 8:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
+                losses[curr_class] += weights[curr_class] * F.binary_cross_entropy(   F.softmax(preds[inst_id, start_index:end_index], dim=-1),
+                                                            F.softmax(labels[inst_id, start_index:end_index], dim=-1),
+                                                            size_average=False)
 
-                    loss_2 += weights[curr_class] * F.binary_cross_entropy(   F.softmax(preds[inst_id, start_index:end_index]),
-                                                                F.softmax(labels[inst_id, start_index:end_index]),
-                                                                size_average=False)
-                else:
-                    embed()
-                    exit()
 
         elif self.loss == 'MSE':
             for inst_id in range(batch_size):
                 curr_class  = obj_classes[inst_id]
-                if curr_class == 4:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
+                start_index = self.ranges[curr_class]
+                end_index   = self.ranges[curr_class + 1]
 
-                    loss_0 += weights[curr_class] * F.mse_loss( preds[inst_id, start_index:end_index],
+                losses[curr_class] += weights[curr_class] * F.mse_loss( preds[inst_id, start_index:end_index],
                                                                 labels[inst_id, start_index:end_index],
                                                                 size_average=False)
-                elif curr_class == 5:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
 
-                    loss_1 += weights[curr_class] * F.mse_loss( preds[inst_id, start_index:end_index],
-                                                                labels[inst_id, start_index:end_index],
-                                                                size_average=False)
-                elif curr_class == 8:
-                    start_index = self.ranges[curr_class]
-                    end_index   = self.ranges[curr_class + 1]
-
-                    loss_2 += weights[curr_class] * F.mse_loss( preds[inst_id, start_index:end_index],
-                                                                labels[inst_id, start_index:end_index],
-                                                                size_average=False)
-                else:
-                    embed()
-                    exit()
-
-        loss = loss_0 + loss_1 + loss_2
+        loss = losses[0] + losses[1] + losses[2] #+ loss_1 + loss_2
         loss = loss / batch_size
-        return loss, loss_0, loss_1, loss_2
+        return loss, losses[0], losses[1], losses[2]

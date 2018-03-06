@@ -32,11 +32,14 @@ If you have any questions, please email me at mbanani@umich.edu.
     - [x] Figure out a nice way of including everything in the same repo ?!
     - [x] Remove dependancy on old weights (NPY and PTH)
     - [x] Output a saved dictionary that Adviser can easily operate over
-- [ ] Import adviser code from the viewpoint_estimation repository!
+- [x] Import adviser code from the viewpoint_estimation repository!
     - [x] Move Code!
-    - [ ] Edit dataset wrapper to be more comprehensible
-    - [ ] Replicate results on Caffe model estimates
-    - [ ] Run Adviser on the new attention-FT model
+    - [x] Edit dataset wrapper to be more comprehensible
+    - [x] Replicate results on Caffe model estimates -- ignore!
+    - [x] Run Adviser on the new attention-FT model
+        - Results :
+            - Accuracy  :  [93.95 89.03 84.07]  -- mean :  89.02
+            - Geo Dist  :  [ 3.48  5.75 12.93]  -- mean :  7.39
 - [ ] Implement on a different task -- Fine-grained classification
     - [ ] Augment original dataset wrappers for the task
     - [ ] Augment AlexNet to operate over multiple branches
@@ -44,6 +47,7 @@ If you have any questions, please email me at mbanani@umich.edu.
         - Zero-center and Normalize input to model
         - Use attention-based optimization and compare to normal optimization scheme.
 - [ ] Compare against Bayesian, Information Theory, (~~and RL ?~~) approaches to this problem
+- [ ] Move prior calculation outside of baseline calculation in adviser_metrics
 - [ ] Move logging inside of metrics
 - [ ] Add `with torch.no_grad():` to prevent gradient calculation for evaluation
 - [ ] Fix error with `loss_weights`

@@ -25,16 +25,19 @@ class advisee_dataset(data.Dataset):
 
         start_time = time.time()
 
-        assert old_kp_dict is not None
+        assert kp_dict is not None
 
         # dataset parameters
         self.root           = dataset_root
         self.loader         = self.pil_loader
+        self.num_classes    = 34
+        self.temperature    = temperature
+
 
         # Load instance data from csv-file
         image_paths, bboxes, obj_class, geo_dists, flip, keys = self.dict_to_instances(kp_dict)
 
-        print "csv file length: ", len(im_paths)
+        print "csv file length: ", len(image_paths)
 
         self.im_paths       = image_paths
         self.bbox           = bboxes
@@ -42,9 +45,7 @@ class advisee_dataset(data.Dataset):
         self.labels         = geo_dists
         self.flip           = flip
         self.keys           = keys
-        self.temperature    = temperature
 
-        self.num_classes    = 34
         self.num_instances  = len(self.im_paths)
         self.im_size        = im_size
 
@@ -154,7 +155,7 @@ class advisee_dataset(data.Dataset):
             else:
                 flip.append(False)
 
-        return image_paths, bboxes, obj_class, geo_dists, flip
+        return image_paths, bboxes, obj_class, geo_dists, flip, dict_keys
 
     def augment(self):
         print "Augment not implemented as a flipped image won't correspond to the same ground truth label. Exiting."

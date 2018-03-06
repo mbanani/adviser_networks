@@ -6,6 +6,7 @@ from datasets                   import pascal3d_kp, advisee_dataset
 import torch.utils.data.distributed
 
 from IPython import embed
+from util                       import Paths
 
 
 root_dir     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,11 +43,12 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
 
     elif dataset == "advisee_full":
 
-        kp_dict_train   = np.load(Paths.kp_dict_chcnn_ftAtt_train).item()
+        # kp_dict_train   = np.load(Paths.kp_dict_chcnn_ftAtt_train).item()
+        kp_dict_train   = np.load(Paths.kp_dict_chcnn_train).item()
         kp_dict_test    = np.load(Paths.kp_dict_chcnn_ftAtt_test).item()
 
-        train_set       = Adviser_Dataset(kp_dict_train, dataset_root = dataset_root, transform = alex_transform)
-        train_set       = Adviser_Dataset(kp_dict_test,  dataset_root = dataset_root, transform = alex_transform)
+        train_set       = advisee_dataset(kp_dict_train, dataset_root = dataset_root, transform = alex_transform)
+        test_set        = advisee_dataset(kp_dict_test,  dataset_root = dataset_root, transform = alex_transform)
 
         valid = 0.0
         flip  = False

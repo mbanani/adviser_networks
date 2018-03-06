@@ -45,30 +45,24 @@ class alexAdviser(nn.Module):
         infer   = nn.Linear(4096,num_classes)
 
 
-        if weights == 'npy':
-            state_dict = np.load(weights_path).item()
+        if weights != None:
 
-            # Convert parameters to torch tensors
-            for key in state_dict.keys():
-                state_dict[key]['weight'] = torch.from_numpy(state_dict[key]['weight'])
-                state_dict[key]['bias']   = torch.from_numpy(state_dict[key]['bias'])
+            conv1.weight.data.copy_(weights['model_state_dict']['conv4.0.weight'])
+            conv1.bias.data.copy_(weights['model_state_dict']['conv4.0.bias'])
+            conv2.weight.data.copy_(weights['model_state_dict']['conv4.4.weight'])
+            conv2.bias.data.copy_(weights['model_state_dict']['conv4.4.bias'])
+            conv3.weight.data.copy_(weights['model_state_dict']['conv4.8.weight'])
+            conv3.bias.data.copy_(weights['model_state_dict']['conv4.8.bias'])
+            conv4.weight.data.copy_(weights['model_state_dict']['conv4.10.weight'])
+            conv4.bias.data.copy_(weights['model_state_dict']['conv4.10.bias'])
+            conv5.weight.data.copy_(weights['model_state_dict']['conv5.0.weight'])
+            conv5.bias.data.copy_(weights['model_state_dict']['conv5.0.bias'])
 
 
-            conv1.weight.data.copy_(state_dict['conv1']['weight'])
-            conv1.bias.data.copy_(state_dict['conv1']['bias'])
-            conv2.weight.data.copy_(state_dict['conv2']['weight'])
-            conv2.bias.data.copy_(state_dict['conv2']['bias'])
-            conv3.weight.data.copy_(state_dict['conv3']['weight'])
-            conv3.bias.data.copy_(state_dict['conv3']['bias'])
-            conv4.weight.data.copy_(state_dict['conv4']['weight'])
-            conv4.bias.data.copy_(state_dict['conv4']['bias'])
-            conv5.weight.data.copy_(state_dict['conv5']['weight'])
-            conv5.bias.data.copy_(state_dict['conv5']['bias'])
-
-            # fc6.weight.data.copy_(state_dict['fc6']['weight'])
-            # fc6.bias.data.copy_(state_dict['fc6']['bias'])
-            # fc7.weight.data.copy_(state_dict['fc7']['weight'])
-            # fc7.bias.data.copy_(state_dict['fc7']['bias'])
+            fc6.weight.data.copy_(weights['model_state_dict']['infer.0.weight'])
+            fc6.bias.data.copy_(weights['model_state_dict']['infer.0.bias'])
+            fc7.weight.data.copy_(weights['model_state_dict']['infer.3.weight'])
+            fc7.bias.data.copy_(weights['model_state_dict']['infer.3.bias'])
 
         self.conv   = nn.Sequential( conv1, relu1, pool1, norm1,
                                     conv2, relu2, pool2, norm2,

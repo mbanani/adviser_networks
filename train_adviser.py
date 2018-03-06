@@ -9,7 +9,7 @@ from IPython import embed
 
 import torch
 
-from util                       import Logger, Paths
+from util                       import tf_logger, Paths
 from util                       import get_data_loaders, adviser_loss, adviser_metrics
 from models                     import alexAdviser
 from util.torch_utils           import to_var, save_checkpoint
@@ -22,27 +22,29 @@ def main(args):
     train_loader, valid_loader, test_loader = get_data_loaders( dataset             = args.dataset,
                                                                 batch_size          = args.batch_size,
                                                                 num_workers         = args.num_workers,
-                                                                machine             = args.machine,
                                                                 model               = args.model,
                                                                 flip                = args.flip,
                                                                 num_classes         = args.num_classes,
                                                                 valid               = 0.0)
 
+
+    # initiate metrics
+    if args.loss == 'MSE':
+        metrics_train = adviser_metrics(train_loader.dataset.kp_dict, regression=True )
+        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict,  regression=True )
+        # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict, regression=True )
+    else:
+        metrics_train = adviser_metrics(train_loader.dataset.kp_dict)
+        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict)
+        # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict)
+
     print "#############  Initiate Model     ##############"
     if args.model == 'alexAdviser':
         assert Paths.clickhere_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
-        model = alexAdviser(weights = 'npy', weights_path = Paths.clickhere_weights)
+        weights = torch.load(Paths.clickhere_weights)
+        model = alexAdviser(weights = weights)
     else:
         assert False, "Error: unknown model choice."
-
-    if args.loss == 'MSE':
-        metrics_train = adviser_metrics(train_loader.dataset.kp_dict, regression=True )
-        # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict, regression=True )
-        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict,  regression=True )
-    else:
-        metrics_train = adviser_metrics(train_loader.dataset.kp_dict)
-        # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict)
-        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict)
 
     # Loss functions
     criterion = adviser_loss(num_classes = args.num_classes, weights = train_loader.dataset.loss_weights, loss = args.loss)
@@ -59,14 +61,10 @@ def main(args):
     else:
         assert False, "Error: Unknown choice for optimizer."
 
-    # if args.world_size > 1:
-    #     print "Parallelizing Model"
-    #     model = torch.nn.DataParallel(model, device_ids = range(0, args.world_size))
 
     # Train on GPU if available
     if torch.cuda.is_available():
         model.cuda()
-
 
     print "Time to initialize take: ", time.time() - initialization_time
     print "#############  Start Training     ##############"
@@ -91,25 +89,25 @@ def main(args):
 
 
             curr_loss, curr_wacc, qual_dict = eval_step(   model       = model,
-                                data_loader = test_loader,
-                                criterion   = criterion,
-                                step        = epoch * total_step,
-                                results_dict = metrics_test,
-                                datasplit   = "test")
+                                                        data_loader = test_loader,
+                                                        criterion   = criterion,
+                                                        step        = epoch * total_step,
+                                                        results_dict = metrics_test,
+                                                        datasplit   = "test")
 
         if args.evaluate_only:
             exit()
 
-        # if epoch % args.save_epoch == 0 and epoch > 0:
-        #
-        #     args = save_checkpoint(  model      = model,
-        #                              optimizer  = optimizer,
-        #                              curr_epoch = epoch,
-        #                              curr_step  = (total_step * epoch),
-        #                              args       = args,
-        #                              curr_loss  = curr_loss,
-        #                              curr_acc   = curr_wacc,
-        #                              filename   = ('model@epoch%d.pkl' %(epoch)))
+        if epoch % args.save_epoch == 0 and epoch > 0:
+
+            args = save_checkpoint(  model      = model,
+                                     optimizer  = optimizer,
+                                     curr_epoch = epoch,
+                                     curr_step  = (total_step * epoch),
+                                     args       = args,
+                                     curr_loss  = curr_loss,
+                                     curr_acc   = curr_wacc,
+                                     filename   = ('model@epoch%d.pkl' %(epoch)))
 
         if args.optimizer == 'sgd':
             scheduler.step()
@@ -122,18 +120,18 @@ def main(args):
                     epoch        = epoch,
                     step         = epoch * total_step)
 
-    # # Final save of the model
-    np.save('/z/home/mbanani/qualitative_dict' + str(args.temperature) + '.npy', qual_dict)
-    # args = save_checkpoint(  model      = model,
-    #                          optimizer  = optimizer,
-    #                          curr_epoch = epoch,
-    #                          curr_step  = (total_step * epoch),
-    #                          args       = args,
-    #                          curr_loss  = curr_loss,
-    #                          curr_acc   = curr_wacc,
-    #                          filename   = ('model@epoch%d.pkl' %(epoch)))
+    # Final save of the model
+    args = save_checkpoint(  model      = model,
+                             optimizer  = optimizer,
+                             curr_epoch = epoch,
+                             curr_step  = (total_step * epoch),
+                             args       = args,
+                             curr_loss  = curr_loss,
+                             curr_acc   = curr_wacc,
+                             filename   = ('model@epoch%d.pkl' %(epoch)))
 
 def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loader = None, valid_type = "valid"):
+    datasplit       = 'train'
     model.train()
     total_step      = len(train_loader)
     epoch_time      = time.time()
@@ -163,10 +161,10 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
         optimizer.step()
 
         # Log losses
-        # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_azim",  loss_a.data[0] , step=step + i)
-        # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_elev",  loss_e.data[0] , step=step + i)
-        # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_tilt",  loss_t.data[0] , step=step + i)
-        # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/train_total", loss.data[0] , step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_bus",    float(loss_bus.data[0].cpu().numpy()) , 	step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_car",    float(loss_car.data[0].cpu().numpy()) , 	step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_mbike",  float(loss_mbike.data[0].cpu().numpy()) , step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_total",  float(loss.data[0].cpu().numpy()) , 	step=step + i)
 
         processing_time += time.time() - training_time
 
@@ -182,11 +180,11 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
                                                                                                     loss_sum / float(counter),
                                                                                                     curr_batch_time,
                                                                                                     curr_time_left / 60.)
-    #
-    # logger.add_scalar_value("Misc/batch time (s)",    curr_batch_time,        step=step + i)
-    # logger.add_scalar_value("Misc/Train_%",           curr_train_per,         step=step + i)
-    # logger.add_scalar_value("Misc/epoch time (min)",  curr_epoch_time / 60.,  step=step + i)
-    # logger.add_scalar_value("Misc/time left (min)",   curr_time_left / 60.,   step=step + i)
+
+    logger.add_scalar_value("Misc/batch time (s)",    curr_batch_time,        step=step + i)
+    logger.add_scalar_value("Misc/Train_%",           curr_train_per,         step=step + i)
+    logger.add_scalar_value("Misc/epoch time (min)",  curr_epoch_time / 60.,  step=step + i)
+    logger.add_scalar_value("Misc/time left (min)",   curr_time_left / 60.,   step=step + i)
 
     # Reset counters
     counter = 0
@@ -196,7 +194,7 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
 
 
 
-def eval_step( model, data_loader,  criterion, step, datasplit, results_dict):
+def eval_step( model, data_loader, criterion, step, datasplit, results_dict):
 
     model.eval()
     results_dict.reset()
@@ -220,39 +218,35 @@ def eval_step( model, data_loader,  criterion, step, datasplit, results_dict):
                                     obj_class.cpu().numpy(),
                                     key)
 
+    type_accuracy, type_total, type_medError, qualitative_dict = results_dict.metrics()
+
+    w_acc           = np.mean(type_accuracy)
+
+    print "==========================================================================="
+    print "Advisee Dataset -- ", datasplit
     print "Evaluation of %s: Loss = %f" % (datasplit, loss_sum / float(total_step))
-    _, _, _, qualitative_dict = results_dict.metrics()
+    print ""
+    print "Accuracy  : ", type_accuracy , " -- mean : ", np.round(np.mean(type_accuracy ), decimals = 2)
+    print "Geo Dist  : ", type_medError , " -- mean : ", np.round(np.mean(type_medError ), decimals = 2)
+    print "Latex     : ", type_accuracy[0],  ' &', type_accuracy[1],  ' &', type_accuracy[2],  ' &', np.round(np.mean(type_accuracy), decimals = 2),
+    print           ' &', type_medError[0],  ' &', type_medError[1],  ' &', type_medError[2],  ' &', np.round(np.mean(type_medError), decimals = 2)
 
-    # geo_dist_median = [np.median(type_dist) * 180. / np.pi for type_dist in type_geo_dist if type_dist != [] ]
-    # type_accuracy   = [ type_accuracy[i] for i in range(0, len(type_accuracy)) if  type_total[i] > 0]
-    # w_acc           = np.mean(type_accuracy)
-    #
-    # print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    # print "Type Acc_pi/6 : ", type_accuracy, " -> ", w_acc, " %"
-    # print "Type Median   : ", [ int(1000 * a_type_med) / 1000. for a_type_med in geo_dist_median ], " -> ", int(1000 * np.mean(geo_dist_median)) / 1000., " degrees"
-    # print "Type Loss     : ", [epoch_loss_a/total_step, epoch_loss_e/total_step, epoch_loss_t/total_step], " -> ", (epoch_loss_a + epoch_loss_e + epoch_loss_t ) / total_step
-    # print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    #
-    # # logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_bus",   geo_dist_median[0],      step=step)
-    # # logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_car",   geo_dist_median[1],      step=step)
-    # # logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_mbike", geo_dist_median[2],      step=step)
-    # logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_total", np.mean(geo_dist_median),step=step)
-    #
-    # # logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_bus",   type_accuracy[0],      step=step)
-    # # logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_car",   type_accuracy[1],      step=step)
-    # # logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_mbike", type_accuracy[2],      step=step)
-    # logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_total", np.mean(type_accuracy),step=step)
-    #
-    # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_azim",  epoch_loss_a / total_step, step=step)
-    # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_elev",  epoch_loss_e / total_step, step=step)
-    # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_tilt",  epoch_loss_t / total_step, step=step)
-    # logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_total",   (epoch_loss_a + epoch_loss_e + epoch_loss_t ) / total_step, step=step)
 
-    #epoch_loss = float(epoch_loss)
-    #assert type(epoch_loss) == float, 'Error: Loss type is not float'
-    #return epoch_loss, w_acc
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Accuracy  /" + datasplit +"_bus",    type_accuracy[0] , step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Accuracy  /" + datasplit +"_car",    type_accuracy[1] , step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Accuracy  /" + datasplit +"_mbike",  type_accuracy[2] , step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Accuracy  /" + datasplit +"_total",  w_acc            , step=step + i)
 
-    return 0, 0, qualitative_dict
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit + "_bus",    float(loss_bus.data[0].cpu().numpy()) , 	step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit + "_car",    float(loss_car.data[0].cpu().numpy()) , 	step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit + "_mbike",  float(loss_mbike.data[0].cpu().numpy()) , step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit + "_total",  float(loss.data[0].cpu().numpy()) , 	step=step + i)
+
+    epoch_loss = float(loss_sum)
+    assert type(epoch_loss) == float, 'Error: Loss type is not float'
+
+    return epoch_loss, w_acc, qualitative_dict
+
 
 
 
@@ -285,7 +279,6 @@ if __name__ == '__main__':
     parser.add_argument('--flip',            action="store_true",default=False)
     parser.add_argument('--num_classes',     type=int, default=34)
     parser.add_argument('--temperature',     type=float, default=1.0)
-    parser.add_argument('--world_size',      type=int, default=1)
 
     args = parser.parse_args()
 
@@ -307,6 +300,6 @@ if __name__ == '__main__':
 
     # Define Logger
     log_name    = args.full_experiment_name
-    logger      = Logger(os.path.join(Paths.tensorboard_logdir, log_name))
+    logger      = tf_logger(os.path.join(Paths.tensorboard_logdir, log_name))
 
     main(args)

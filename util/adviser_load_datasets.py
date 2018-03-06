@@ -5,6 +5,7 @@ import numpy                    as np
 import torchvision.transforms   as transforms
 
 from datasets                   import advisee_dataset
+from util                       import Paths
 
 root_dir     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dataset_root = '/z/home/mbanani/datasets/pascal3d'
