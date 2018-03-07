@@ -80,7 +80,7 @@ def main(args):
             #                     results_dict = metrics_train,
             #                     datasplit   = "train")
             #
-            # curr_loss, curr_wacc = eval_step(   model       = model,
+            # curr_loss, curr_wacc, _ = eval_step(   model       = model,
             #                                     data_loader = valid_loader,
             #                                     criterion   = criterion,
             #                                     step        = epoch * total_step,
@@ -88,12 +88,12 @@ def main(args):
             #                                     datasplit   = "valid")
 
 
-            curr_loss, curr_wacc, qual_dict = eval_step(   model       = model,
-                                                        data_loader = test_loader,
-                                                        criterion   = criterion,
-                                                        step        = epoch * total_step,
-                                                        results_dict = metrics_test,
-                                                        datasplit   = "test")
+            curr_loss, curr_wacc, qual_dict = eval_step(    model = model,
+                                        data_loader = test_loader,
+                                        criterion   = criterion,
+                                        step        = epoch * total_step,
+                                        results_dict = metrics_test,
+                                        datasplit   = "test")
 
         if args.evaluate_only:
             exit()
@@ -164,7 +164,7 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
         logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_bus",    float(loss_bus.data[0].cpu().numpy()) , 	step=step + i)
         logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_car",    float(loss_car.data[0].cpu().numpy()) , 	step=step + i)
         logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_mbike",  float(loss_mbike.data[0].cpu().numpy()) , step=step + i)
-        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_total",  float(loss.data[0].cpu().numpy()) , 	step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_total",  float(loss.data[0].cpu().numpy()) , 	   step=step + i)
 
         processing_time += time.time() - training_time
 
@@ -218,8 +218,14 @@ def eval_step( model, data_loader, criterion, step, datasplit, results_dict):
                                     obj_class.cpu().numpy(),
                                     key)
 
-    type_accuracy, type_total, type_medError, qualitative_dict = results_dict.metrics()
+        # Log losses
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_bus",    float(loss_bus.data[0].cpu().numpy()) , 	step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_car",    float(loss_car.data[0].cpu().numpy()) , 	step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_mbike",  float(loss_mbike.data[0].cpu().numpy()) , step=step + i)
+        logger.add_scalar_value("(" + args.dataset + ") Adviser Loss  /" + datasplit +"_total",  float(loss.data[0].cpu().numpy()) , 	   step=step + i)
 
+
+    type_accuracy, type_total, type_medError, qualitative_dict = results_dict.metrics()
     w_acc           = np.mean(type_accuracy)
 
     print "==========================================================================="

@@ -37,9 +37,13 @@ If you have any questions, please email me at mbanani@umich.edu.
     - [x] Edit dataset wrapper to be more comprehensible
     - [x] Replicate results on Caffe model estimates -- ignore!
     - [x] Run Adviser on the new attention-FT model
-        - Results :
+        - Results `python train_adviser.py --dataset advisee_full --model alexAdviser --temperature 0.01`
             - Accuracy  :  [93.95 89.03 84.07]  -- mean :  89.02
             - Geo Dist  :  [ 3.48  5.75 12.93]  -- mean :  7.39
+    - [x] Implement saving! 
+- [ ] Implement different form of attentional stream
+    - One idea is to apply a cross product to an augmented version of the KPC,
+      convolve that, and then use that as the attentional map ?
 - [ ] Implement on a different task -- Fine-grained classification
     - [ ] Augment original dataset wrappers for the task
     - [ ] Augment AlexNet to operate over multiple branches
