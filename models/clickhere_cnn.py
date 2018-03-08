@@ -105,43 +105,43 @@ class clickhere_cnn(nn.Module):
         self.tilt[0].weight.data.normal_(0.0, 0.01)
         self.tilt[0].bias.data.fill_(0)
 
-
     def forward(self, images, kp_map, kp_class):
+        # images    : 3x227x227
+        # kp_map    : 46x46
+        # kp_class  : 34
+
         # Image Stream
-        images = self.conv4(images)
+        images = self.conv4(images)                         # 384x13x13
 
         # Keypoint Stream
         # KP map scaling performed in dataset class
-        kp_map      = kp_map.view(kp_map.size(0), -1)
-        kp_map      = self.map_linear(kp_map)
-        kp_class    = self.cls_linear(kp_class)
+        kp_map      = kp_map.view(kp_map.size(0), -1)       # 2116
+        kp_map      = self.map_linear(kp_map)               # 2116
+        kp_class    = self.cls_linear(kp_class)             # 34
 
         # Concatenate the two keypoint feature vectors
-        # In deploy file, map over class
-        kp_map  = torch.cat([kp_map, kp_class], dim = 1)
+        kp_map  = torch.cat([kp_map, kp_class], dim = 1)    # 2150
 
         # Softmax followed by reshaping into a 13x13
-        # Conv4 as shape batch * 384 * 13 * 13
-        kp_map  = self.kp_softmax(kp_map)
-        kp_map  = kp_map.view(kp_map.size(0),1, 13, 13)
+        kp_map  = self.kp_softmax(kp_map)                   # 2116
+        kp_map  = kp_map.view(kp_map.size(0),1, 13, 13)     # 1x13x13
 
         # Attention -> Elt. wise product, then summation over x and y dims
-        kp_map  = kp_map * images
-        kp_map  = kp_map.sum(3).sum(2)
+        kp_map  = kp_map * images                           # 384x13x13
+        kp_map  = kp_map.sum(3).sum(2)                      # 384
 
         # Continue from conv4
-        images = self.conv5(images)
-        images = images.view(images.size(0), -1)
-        images = self.infer(images)
-
+        images = self.conv5(images)                         # 256x6x6
+        images = images.view(images.size(0), -1)            # 9216
+        images = self.infer(images)                         # 4096
 
         # Concatenate fc7 and attended features
-        images = torch.cat([images, kp_map], dim = 1)
-        images = self.fusion(images)
+        images = torch.cat([images, kp_map], dim = 1)       # 4480 (4096+384)
+        images = self.fusion(images)                        # 4096
 
         # Final inference
-        azim = self.azim(images)
-        elev = self.elev(images)
-        tilt = self.tilt(images)
+        azim = self.azim(images)                            # num_classes * 360
+        elev = self.elev(images)                            # num_classes * 360
+        tilt = self.tilt(images)                            # num_classes * 360
 
-        return azim, tilt, elev
+        return azim, elev, tilt
