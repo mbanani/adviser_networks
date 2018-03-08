@@ -11,7 +11,7 @@ import torch
 
 from util                       import ViewpointLoss, tf_logger, Paths
 from util                       import get_data_loaders, vp_metrics
-from models                     import clickhere_cnn
+from models                     import clickhere_cnn, ch_convAtt
 from util.torch_utils           import to_var, save_checkpoint
 from torch.optim.lr_scheduler   import MultiStepLR
 
@@ -40,6 +40,10 @@ def main(args):
         model   = clickhere_cnn(num_classes = args.num_classes)
         weights = torch.load(Paths.clickhere_weights)
         model.load_state_dict(weights['model_state_dict'])
+    elif args.model == 'ch_convAtt':
+        assert Paths.clickhere_weights != None, "Error: Set clickhere_weights weights path in util/Paths.py."
+        weights = torch.load(Paths.clickhere_weights)
+        model   = ch_convAtt(weights = weights, num_classes = args.num_classes)
     else:
         assert False, "Error: unknown model choice."
 
@@ -49,9 +53,11 @@ def main(args):
     # Parameters to train
     if args.just_attention:
         params = list(model.map_linear.parameters()) +list(model.cls_linear.parameters())
-        params = params + list(model.kp_softmax.parameters()) +list(model.fusion.parameters())
+        params = params + list(model.fusion.parameters())
         params = params + list(model.azim.parameters()) + list(model.elev.parameters())
         params = params + list(model.tilt.parameters())
+        if 'clickhere' in args.model:
+            params = params + list(model.kp_softmax.parameters())
     else:
         params = list(model.parameters())
 
@@ -104,14 +110,14 @@ def main(args):
 
     for epoch in range(0, args.num_epochs):
 
-        if epoch % args.eval_epoch == 0 and not args.no_eval:
+        if epoch % args.eval_epoch == 0 and epoch > 0 and not args.no_eval:
             if 'pascal' in args.dataset and args.evaluate_train:
                 _, _ = eval_step(   model       = model,
                                     data_loader = train_loader,
                                     criterion   = criterion,
                                     step        = epoch * total_step,
                                     datasplit   = "train",
-                                    with_dropout = True)
+                                    with_dropout = False)
 
 
             curr_loss, curr_wacc = eval_step(   model       = model,
@@ -344,7 +350,7 @@ if __name__ == '__main__':
     parser.add_argument('--optimizer',       type=str,default='sgd')
 
     # experiment details
-    parser.add_argument('--dataset',         type=str, default='pascalKP')
+    parser.add_argument('--dataset',         type=str, default='pascalVehKP')
     parser.add_argument('--model',           type=str, default='pretrained_clickhere')
     parser.add_argument('--experiment_name', type=str, default= 'Test')
     parser.add_argument('--evaluate_only',   action="store_true",default=False)
@@ -353,7 +359,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_dict',       action="store_true",default=False)
     parser.add_argument('--flip',            action="store_true",default=False)
     parser.add_argument('--just_attention',  action="store_true",default=False)
-    parser.add_argument('--num_classes',     type=int, default=12)
+    parser.add_argument('--num_classes',     type=int, default=3)
     parser.add_argument('--resume',          type=str, default=None)
     parser.add_argument('--world_size',      type=int, default=1)
     parser.add_argument('--main',            action="store_true",default=False)
