@@ -9,6 +9,7 @@ old_stuff
 test.py
 data/*.csv
 data/*.txt
+*.o*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
