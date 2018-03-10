@@ -4,6 +4,8 @@ import torchvision.models as models
 from torch.autograd import Variable
 import numpy as np
 from IPython import embed
+import torch.nn.functional as F
+
 
 class ch_convAtt(nn.Module):
     def __init__(self, weights, num_classes = 12):
@@ -42,10 +44,10 @@ class ch_convAtt(nn.Module):
         drop7 = nn.Dropout(0.5)
 
         #Keypoint Stream
-        kp_map_1    = nn.Conv2d(34, 64, kernel_size=3, stride=1, dilation=1,padding =1)
+        kp_map_1    = nn.Conv2d(34, 12, kernel_size=3, stride=1, dilation=1,padding =1)
         kp_relu_1   = nn.ReLU()
         kp_pool     = nn.AvgPool2d(3, stride=3)
-        kp_map_2    = nn.Conv2d(64, 64, kernel_size=3, stride=1, dilation=1,padding =0)
+        kp_map_2    = nn.Conv2d(12, 1, kernel_size=3, stride=1, dilation=1,padding =0)
         kp_relu_2   = nn.ReLU()
         kp_class    = nn.Linear(34,34)
 
@@ -89,8 +91,12 @@ class ch_convAtt(nn.Module):
 
         self.conv5 = nn.Sequential( conv5,  relu5,  pool5)
 
-        self.map_linear  = nn.Sequential( kp_map_1, kp_relu_1, kp_pool,
-                                        kp_map_2, kp_relu_2)
+        self.map_linear  = nn.Sequential( kp_map_1,
+                                        kp_relu_1,
+                                        kp_pool,
+                                        kp_map_2,
+                                        kp_relu_2
+                                        )
         self.cls_linear  = nn.Sequential( kp_class )
 
         self.infer = nn.Sequential(fc6, relu6, drop6, fc7, relu7, drop7)
@@ -101,7 +107,8 @@ class ch_convAtt(nn.Module):
         self.elev = nn.Sequential(elev)
         self.tilt = nn.Sequential(tilt)
 
-        self.init_weights()
+        if weights == None:
+            self.init_weights()
 
 
     def init_weights(self, weights = None):
@@ -114,41 +121,40 @@ class ch_convAtt(nn.Module):
             self.infer[3].bias.data.fill_(0)
 
         # Intialize weights for KP stream
-        nn.init.xavier_uniform(self.map_linear[0].weight)
-        nn.init.xavier_uniform(self.map_linear[3].weight)
-        nn.init.xavier_uniform(self.cls_linear[0].weight)
-        # nn.init.xavier_uniform(self.kp_softmax[0].weight)
-        nn.init.xavier_uniform(self.fusion[0].weight)
-        nn.init.xavier_uniform(self.azim[0].weight)
-        nn.init.xavier_uniform(self.elev[0].weight)
-        nn.init.xavier_uniform(self.tilt[0].weight)
 
-        # self.map_linear[0].weight.data.normal_(0.0, 0.01)
-        # self.map_linear[3].weight.data.normal_(0.0, 0.01)
-        # self.cls_linear[0].weight.data.normal_(0.0, 0.01)
-        # self.kp_softmax[0].weight.data.normal_(0.0, 0.01)
-        # self.fusion[0].weight.data.normal_(0.0, 0.01)
-        # self.azim[0].weight.data.normal_(0.0, 0.01)
-        # self.elev[0].weight.data.normal_(0.0, 0.01)
-        # self.tilt[0].weight.data.normal_(0.0, 0.01)
+        self.map_linear[0].weight.data.normal_(0.0, 0.01)
+        self.map_linear[3].weight.data.normal_(0.0, 0.01)
+        self.cls_linear[0].weight.data.normal_(0.0, 0.01)
+        self.fusion[0].weight.data.normal_(0.0, 0.01)
+        self.azim[0].weight.data.normal_(0.0, 0.01)
+        self.elev[0].weight.data.normal_(0.0, 0.01)
+        self.tilt[0].weight.data.normal_(0.0, 0.01)
+
+        self.map_linear[0].bias.data.fill_(0)
+        self.map_linear[3].bias.data.fill_(0)
+        self.cls_linear[0].bias.data.fill_(0)
+        self.fusion[0].bias.data.fill_(0)
+        self.azim[0].bias.data.fill_(0)
+        self.elev[0].bias.data.fill_(0)
+        self.tilt[0].bias.data.fill_(0)
+
+        # # Xavier initialization -- produces worse results for some reason :/ 
+        # nn.init.xavier_uniform(self.map_linear[0].weight)
+        # nn.init.xavier_uniform(self.map_linear[3].weight)
+        # nn.init.xavier_uniform(self.cls_linear[0].weight)
+        # nn.init.xavier_uniform(self.fusion[0].weight)
+        # nn.init.xavier_uniform(self.azim[0].weight)
+        # nn.init.xavier_uniform(self.elev[0].weight)
+        # nn.init.xavier_uniform(self.tilt[0].weight)
 
         # nn.init.xavier_uniform(self.map_linear[0].bias)
         # nn.init.xavier_uniform(self.map_linear[3].bias)
         # nn.init.xavier_uniform(self.cls_linear[0].bias)
-        # nn.init.xavier_uniform(self.kp_softmax[0].bias)
         # nn.init.xavier_uniform(self.fusion[0].bias)
         # nn.init.xavier_uniform(self.azim[0].bias)
         # nn.init.xavier_uniform(self.elev[0].bias)
         # nn.init.xavier_uniform(self.tilt[0].bias)
 
-        self.map_linear[0].bias.data.fill_(0)
-        self.map_linear[3].bias.data.fill_(0)
-        self.cls_linear[0].bias.data.fill_(0)
-        # self.kp_softmax[0].bias.data.fill_(0)
-        self.fusion[0].bias.data.fill_(0)
-        self.azim[0].bias.data.fill_(0)
-        self.elev[0].bias.data.fill_(0)
-        self.tilt[0].bias.data.fill_(0)
 
     def forward(self, images, kp_map, kp_class):
         # images    : 3x227x227
@@ -169,9 +175,11 @@ class ch_convAtt(nn.Module):
 
         # Convolve kp_map
         # Concatenate the two keypoint feature vectors
-        kp_map  = self.map_linear(kp_map)                     # 64 x 46 x 46
-        kp_map  = kp_map.sum(1)                             #      46 x 46
-        kp_map  = kp_map.unsqueeze(1)                       # 1  x 13 x 13
+        kp_map  = self.map_linear(kp_map)                   # 1 x 13 x 13
+        kp_map = kp_map.view(kp_map.size(0), 13*13)         # 13*13
+        kp_map = F.softmax(kp_map, dim=-1)                  # 13*13
+        kp_map = kp_map.view(kp_map.size(0), 13*13)         # 1 x 13 x 13
+
 
         # Attention -> Elt. wise product, then summation over x and y dims
         kp_map  = kp_map * images                           # 384x13x13
