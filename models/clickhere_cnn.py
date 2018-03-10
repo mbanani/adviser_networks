@@ -6,7 +6,7 @@ import numpy as np
 from IPython import embed
 
 class clickhere_cnn(nn.Module):
-    def __init__(self, num_classes = 12):
+    def __init__(self, weights = None, num_classes = 12):
         super(clickhere_cnn, self).__init__()
 
         # Normalization layers
@@ -56,6 +56,25 @@ class clickhere_cnn(nn.Module):
         elev        = nn.Linear(4096, num_classes * 360)
         tilt        = nn.Linear(4096, num_classes * 360)
 
+        if weights != None:
+
+            conv1.weight.data.copy_(weights['model_state_dict']['conv4.0.weight'])
+            conv1.bias.data.copy_(weights['model_state_dict']['conv4.0.bias'])
+            conv2.weight.data.copy_(weights['model_state_dict']['conv4.4.weight'])
+            conv2.bias.data.copy_(weights['model_state_dict']['conv4.4.bias'])
+            conv3.weight.data.copy_(weights['model_state_dict']['conv4.8.weight'])
+            conv3.bias.data.copy_(weights['model_state_dict']['conv4.8.bias'])
+            conv4.weight.data.copy_(weights['model_state_dict']['conv4.10.weight'])
+            conv4.bias.data.copy_(weights['model_state_dict']['conv4.10.bias'])
+            conv5.weight.data.copy_(weights['model_state_dict']['conv5.0.weight'])
+            conv5.bias.data.copy_(weights['model_state_dict']['conv5.0.bias'])
+
+
+            fc6.weight.data.copy_(weights['model_state_dict']['infer.0.weight'])
+            fc6.bias.data.copy_(weights['model_state_dict']['infer.0.bias'])
+            fc7.weight.data.copy_(weights['model_state_dict']['infer.3.weight'])
+            fc7.bias.data.copy_(weights['model_state_dict']['infer.3.bias'])
+
         # Define Network
         self.conv4 = nn.Sequential( conv1, relu1, pool1, norm1,
                                     conv2, relu2, pool2, norm2,
@@ -76,7 +95,8 @@ class clickhere_cnn(nn.Module):
         self.elev = nn.Sequential(elev)
         self.tilt = nn.Sequential(tilt)
 
-        self.init_weights()
+        if weights == None:
+            self.init_weights()
 
 
     def init_weights(self):
