@@ -1,54 +1,79 @@
 import os,sys, math
 import torch
-import numpy                    as np
-import torchvision.transforms   as transforms
-from datasets                   import pascal3d_kp, advisee_dataset
 import torch.utils.data.distributed
 
-from IPython import embed
-from util                       import Paths
+import numpy                    as np
+import torchvision.transforms   as transforms
 
+from datasets                   import pascal3d_kp, advisee_dataset, birdsnap_kp
+from util                       import Paths
+from IPython                    import embed
 
 root_dir     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-dataset_root = '/z/home/mbanani/datasets/pascal3d'
-
-# # The New transform for ImageNet Stuff
-# new_transform   = transforms.Compose([
-#                                     transforms.ToTensor(),
-#                                     transforms.Normalize(mean=(0.485, 0.456, 0.406),
-#                                     std=(0.229, 0.224, 0.225))])
 
 
 def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, flip = False, valid = 0.0, parallel = False):
 
     image_size = 227
-    alex_transform  = transforms.Compose([transforms.ToTensor(),
-                        transforms.Normalize(    mean=(104/255., 116.6/255., 122.6/255.),
-                                                std=(1./255., 1./255., 1./255.) ) ])
+    old_transform  = transforms.Compose([   transforms.ToTensor(),
+                                            transforms.Normalize(   mean=(104/255., 116.6/255., 122.6/255.),
+                                                                    std=(1./255., 1./255., 1./255.) ) ])
 
+    new_transform = transforms.Compose([   transforms.ToTensor(),
+                                            transforms.Normalize(   mean=(0.485, 0.456, 0.406),
+                                                                    std=(0.229, 0.224, 0.225))])
 
     if dataset == "pascalVehKP":
+        dataset_root = '/z/home/mbanani/datasets/pascal3d'
+
         csv_train = os.path.join(root_dir, 'data/veh_pascal3d_kp_train.csv')
         csv_test  = os.path.join(root_dir, 'data/veh_pascal3d_kp_valid.csv')
 
-        train_set = pascal3d_kp(csv_train, dataset_root= dataset_root, transform = alex_transform, im_size = image_size, num_classes = num_classes)
-        test_set  = pascal3d_kp(csv_test, dataset_root= dataset_root, transform = alex_transform, im_size = image_size, num_classes = num_classes)
+        train_set = pascal3d_kp(csv_train, dataset_root= dataset_root, transform = old_transform, im_size = image_size, num_classes = num_classes)
+        test_set  = pascal3d_kp(csv_test, dataset_root= dataset_root, transform =  old_transform, im_size = image_size, num_classes = num_classes)
 
     elif dataset == "pascalKP":
+        dataset_root = '/z/home/mbanani/datasets/pascal3d'
+
         csv_train = os.path.join(root_dir, 'data/pascal3d_kp_train.csv')
         csv_test  = os.path.join(root_dir, 'data/pascal3d_kp_valid.csv')
 
-        train_set = pascal3d_kp(csv_train, dataset_root= dataset_root, transform = alex_transform, im_size = image_size, num_classes = num_classes)
-        test_set  = pascal3d_kp(csv_test,  dataset_root= dataset_root, transform = alex_transform,  im_size = image_size, num_classes = num_classes)
+        train_set = pascal3d_kp(csv_train, dataset_root= dataset_root, transform = old_transform, im_size = image_size, num_classes = num_classes)
+        test_set  = pascal3d_kp(csv_test,  dataset_root= dataset_root, transform = old_transform,  im_size = image_size, num_classes = num_classes)
 
-    elif dataset == "advisee_full":
+    elif dataset == "advisee_pascal_full":
+
+        dataset_root = '/z/home/mbanani/datasets/pascal3d'
 
         # kp_dict_train   = np.load(Paths.kp_dict_chcnn_ftAtt_train).item()
         kp_dict_train   = np.load(Paths.kp_dict_chcnn_train).item()
         kp_dict_test    = np.load(Paths.kp_dict_chcnn_ftAtt_test).item()
 
-        train_set       = advisee_dataset(kp_dict_train, dataset_root = dataset_root, transform = alex_transform)
-        test_set        = advisee_dataset(kp_dict_test,  dataset_root = dataset_root, transform = alex_transform)
+        train_set       = advisee_dataset(kp_dict_train, dataset_root = dataset_root, transform =  old_transform)
+        test_set        = advisee_dataset(kp_dict_test,  dataset_root = dataset_root, transform =  old_transform)
+
+        valid = 0.0
+        flip  = False
+
+    elif dataset == "birdsnapKP":
+        dataset_root        = '/z/home/mbanani/datasets/birdsnap'
+        preprocessed_root   = "/z/home/mbanani/datasets/birdsnap_preprocess_227"
+        map_size            = 46
+
+        csv_train   = os.path.join(dataset_root, 'birdsnap_train.txt')
+        csv_test    = os.path.join(dataset_root, 'birdsnap_test.txt')
+
+        train_set   = birdsnap_kp(  csv_train, dataset_root,
+                                    preprocessed_root = preprocessed_root,
+                                    image_size = image_size,
+                                    map_size= map_size,
+                                    transform =  new_transform)
+
+        test_set    = birdsnap_kp(  csv_test,  dataset_root,
+                                    preprocessed_root = preprocessed_root,
+                                    image_size = image_size,
+                                    map_size= map_size,
+                                    transform =  new_transform)
 
         valid = 0.0
         flip  = False
