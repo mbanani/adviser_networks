@@ -32,17 +32,16 @@ def main(args):
     print "#############  Initiate Model     ##############"
     if args.model == 'clickhere':
         assert Paths.render4cnn_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
-        print "Haven't implemented partial import yet. Exiting."
-        exit()
-        model = clickhere_cnn(num_classes = args.num_classes)
+        weights = torch.load(Paths.render4cnn_weights)
+        model = clickhere_cnn(weights = weights, num_classes = args.num_classes)
     elif args.model == 'pretrained_clickhere':
         assert Paths.clickhere_weights != None, "Error: Set clickhere_weights weights path in util/Paths.py."
         model   = clickhere_cnn(num_classes = args.num_classes)
         weights = torch.load(Paths.clickhere_weights)
         model.load_state_dict(weights['model_state_dict'])
     elif args.model == 'ch_convAtt':
-        assert Paths.clickhere_weights != None, "Error: Set clickhere_weights weights path in util/Paths.py."
-        weights = torch.load(Paths.clickhere_weights)
+        assert Paths.render4cnn_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
+        weights = torch.load(Paths.render4cnn_weights)
         model   = ch_convAtt(weights = weights, num_classes = args.num_classes)
     else:
         assert False, "Error: unknown model choice."
@@ -60,17 +59,6 @@ def main(args):
             params = params + list(model.kp_softmax.parameters())
     else:
         params = list(model.parameters())
-
-    # Optimizer
-    if args.optimizer == 'adam':
-        optimizer = torch.optim.Adam(params, lr = args.lr, betas = (0.9, 0.999), eps=1e-8, weight_decay=0)
-    elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(params, lr=args.lr, momentum = 0.9, weight_decay = 0.0005)
-        scheduler = MultiStepLR( optimizer,
-                                 milestones=range(0, args.num_epochs, 5),
-                                 gamma=0.95)
-    else:
-        assert False, "Error: Unknown choice for optimizer."
 
 
     if args.resume is not None:
@@ -103,6 +91,20 @@ def main(args):
         # Train on GPU if available
         model.cuda()
 
+    # Optimizer
+    if args.optimizer == 'adam':
+        optimizer = torch.optim.Adam(params, lr = args.lr, betas = (0.9, 0.999), eps=1e-8, weight_decay=0)
+    elif args.optimizer == 'sgd':
+        gamma   = 0.95
+        lr_step = 5
+        lr      = args.lr * (gamma ** (start_epoch/lr_step))
+        optimizer = torch.optim.SGD(params, lr=lr, momentum = 0.9 , weight_decay = 0.0005)
+        scheduler = MultiStepLR( optimizer,
+                                 milestones=range(0, args.num_epochs, lr_step),
+                                 gamma=0.95)
+    else:
+        assert False, "Error: Unknown choice for optimizer."
+
 
     print "Initialization Time (s) : ", time.time() - initialization_time
     print "#############  Start Training     ##############"
@@ -110,12 +112,12 @@ def main(args):
 
     for epoch in range(0, args.num_epochs):
 
-        if epoch % args.eval_epoch == 0 and epoch > 0 and not args.no_eval:
+        if epoch % args.eval_epoch == 0  and not args.no_eval:
             if 'pascal' in args.dataset and args.evaluate_train:
                 _, _ = eval_step(   model       = model,
                                     data_loader = train_loader,
                                     criterion   = criterion,
-                                    step        = epoch * total_step,
+                                    step        = epoch * total_step + start_step,
                                     datasplit   = "train",
                                     with_dropout = False)
 
@@ -123,14 +125,14 @@ def main(args):
             curr_loss, curr_wacc = eval_step(   model       = model,
                                                 data_loader = test_loader,
                                                 criterion   = criterion,
-                                                step        = epoch * total_step,
+                                                step        = epoch * total_step + start_step,
                                                 datasplit   = "test")
 
             if valid_loader != None:
                 curr_loss, curr_wacc = eval_step(   model       = model,
                                                     data_loader = valid_loader,
                                                     criterion   = criterion,
-                                                    step        = epoch * total_step,
+                                                    step        = epoch * total_step + start_step,
                                                     datasplit   = "valid")
 
 
@@ -142,8 +144,8 @@ def main(args):
 
             args = save_checkpoint(  model      = model,
                                      optimizer  = optimizer,
-                                     curr_epoch = epoch,
-                                     curr_step  = (total_step * epoch),
+                                     curr_epoch = epoch + start_epoch,
+                                     curr_step  = (total_step * epoch) + start_step,
                                      args       = args,
                                      curr_loss  = curr_loss,
                                      curr_acc   = curr_wacc,
@@ -157,16 +159,16 @@ def main(args):
                     train_loader = train_loader,
                     criterion    = criterion,
                     optimizer    = optimizer,
-                    epoch        = epoch,
-                    step         = epoch * total_step,
+                    epoch        = epoch + start_epoch,
+                    step         = epoch * total_step + start_step,
                     valid_loader = valid_loader,
                     valid_type   = "valid")
 
     # Final save of the model
     args = save_checkpoint( model      = model,
                             optimizer  = optimizer,
-                            curr_epoch = epoch,
-                            curr_step  = (total_step * epoch),
+                            curr_epoch = epoch + start_epoch,
+                            curr_step  = (total_step * epoch)+ start_step,
                             args       = args,
                             curr_loss  = curr_loss,
                             curr_acc   = curr_wacc,
@@ -255,7 +257,7 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
 
 
 def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = False):
-    if not with_dropout:
+    if datasplit != 'train':
         model.eval()
 
     total_step      = len(data_loader)
@@ -302,12 +304,14 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
         results_dict.save_dict(args.kp_dict_name)
 
     geo_dist_median = [np.median(type_dist) * 180. / np.pi for type_dist in type_geo_dist if type_dist != [] ]
+    geo_dist_mean   = [np.mean(type_dist) * 180. / np.pi for type_dist in type_geo_dist if type_dist != [] ]
     type_accuracy   = [ type_accuracy[i] * 100. for i in range(0, len(type_accuracy)) if  type_total[i] > 0]
     w_acc           = np.mean(type_accuracy)
 
     print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
     print "Type Acc_pi/6 : ", type_accuracy, " -> ", w_acc, " %"
     print "Type Median   : ", [ int(1000 * a_type_med) / 1000. for a_type_med in geo_dist_median ], " -> ", int(1000 * np.mean(geo_dist_median)) / 1000., " degrees"
+    print "Type Mean     : ", [ int(1000 * a_type_med) / 1000. for a_type_med in geo_dist_mean ], " -> ", int(1000 * np.mean(geo_dist_mean)) / 1000., " degrees"
     print "Type Loss     : ", [epoch_loss_a/total_step, epoch_loss_e/total_step, epoch_loss_t/total_step], " -> ", (epoch_loss_a + epoch_loss_e + epoch_loss_t ) / total_step
     print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 
