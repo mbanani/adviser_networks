@@ -275,7 +275,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_norm',      action="store_true",default=False)
 
     # experiment details
-    parser.add_argument('--dataset',         type=str, default='adviser')
+    parser.add_argument('--dataset',         type=str, default='advisee_pascal_full')
     parser.add_argument('--model',           type=str, default='alexAdviser')
     parser.add_argument('--experiment_name', type=str, default=None)
     parser.add_argument('--machine',         type=str, default='z')
