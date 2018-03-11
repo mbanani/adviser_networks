@@ -31,10 +31,10 @@ def main(args):
 
     print "#############  Initiate Model     ##############"
     if args.model == 'alexBird':
-        model = alexBird()
+        model = alexBird(num_classes = args.num_classes)
         args.no_keypoint = True
     elif args.model == 'ch_alexBird':
-        model = ch_alexBird()
+        model = ch_alexBird(num_classes = args.num_classes)
         args.no_keypoint = False
     else:
         print "Error: unknown model choice. Exiting."
@@ -254,7 +254,7 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
     for i, (images, labels, kp_map, kp_class, key_uid) in enumerate(data_loader):
 
         if i % args.log_rate == 0:
-            print "Evaluation of %s [%d/%d] Time Elapsed: %f " % (datasplit, i, total_step, time.time() - start_time)
+            print "Evaluation of %s [%d/%d] \t Time Elapsed: %.2f seconds." % (datasplit, i, total_step, time.time() - start_time)
 
         images = to_var(images, volatile=True)
         labels = to_var(labels, volatile=True)
@@ -272,7 +272,7 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
 
 
     accuracy1, accuracy5, accuracy10, total_count = results_dict.metrics()
-    epoch_loss = float(epoch_loss)
+    epoch_loss = float(epoch_loss)/float(total_step)
 
     acc1    = np.sum(accuracy1  * total_count) / np.sum(total_count) * 100
     acc5    = np.sum(accuracy5  * total_count) / np.sum(total_count) * 100
@@ -346,6 +346,11 @@ if __name__ == '__main__':
     args.best_loss              = sys.float_info.max
     args.best_acc               = 0.
 
+
+    if args.dataset == 'CUB_kp':
+        args.num_classes = 200
+    elif args.dataset == 'birdsnapKP':
+        args.num_classes = 500
 
     # Create model directory
     if not os.path.exists(experiment_result_dir):

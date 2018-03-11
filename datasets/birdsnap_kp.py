@@ -16,7 +16,6 @@ class birdsnap_kp(torch.utils.data.Dataset):
 
     def __init__(self, csv_path, dataset_dir, preprocessed_root = None, image_size = 227, map_size=46, transform = None, unique = True):
 
-
         if preprocessed_root:
             self.preprocessed = True
             self.image_root = preprocessed_root
@@ -97,16 +96,13 @@ class birdsnap_kp(torch.utils.data.Dataset):
         print "Dataset size: ", len(im_paths)
         print ommited, " kp-image instances ommited due to keypoint lying outside of bounding box"
 
-        if len(im_paths) == 0:
-            raise(RuntimeError("Found 0 images in subfolders of: " + root + "\n"
-                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
 
 
 
         self.image_paths    = im_paths
         self.bboxes         = bbs
         self.image_class    = im_cls
-        self.image_class_id = im_cls_id
+        self.obj_class = im_cls_id
         self.keypoint_loc   = kp_loc
         self.keypoint_cls   = kp_cls
         self.flips          = [False] * len(im_paths)
@@ -147,7 +143,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
         # kp_class   = torch.from_numpy(kpc_vec).float()
         # kp_map     = torch.from_numpy(kpm_map).float()
 
-        return img, self.image_class_id[index], 0, 0 , self.uids[index]
+        return img, self.obj_class[index], 0, 0 , self.uids[index]
 
     def __len__(self):
         return self.num_instances
@@ -317,7 +313,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
         print "Generating validation (size %d)" % valid_size
         valid_class.image_paths     = [ self.image_paths[i]     for i in sorted(set_valid) ]
         valid_class.bboxes          = [ self.bboxes[i]          for i in sorted(set_valid) ]
-        valid_class.image_class_id  = [ self.image_class_id[i]  for i in sorted(set_valid) ]
+        valid_class.obj_class  = [ self.obj_class[i]  for i in sorted(set_valid) ]
         valid_class.flips           = [ self.flips[i]           for i in sorted(set_valid) ]
         valid_class.keypoint_cls    = [ self.keypoint_cls[i]    for i in sorted(set_valid) ]
         valid_class.keypoint_loc    = [ self.keypoint_loc[i]    for i in sorted(set_valid) ]
@@ -328,7 +324,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
         print "Augmenting training (size %d)" % train_size
         self.image_paths     = [ self.image_paths[i]    for i in sorted(set_train) ]
         self.bboxes          = [ self.bboxes[i]         for i in sorted(set_train) ]
-        self.image_class_id  = [ self.image_class_id[i] for i in sorted(set_train) ]
+        self.obj_class  = [ self.obj_class[i] for i in sorted(set_train) ]
         self.flips           = [ self.flips[i]          for i in sorted(set_train) ]
         self.keypoint_cls    = [ self.keypoint_cls[i]   for i in sorted(set_train) ]
         self.keypoint_loc    = [ self.keypoint_loc[i]   for i in sorted(set_train) ]
@@ -345,7 +341,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
     def augment(self):
         self.image_paths     = self.image_paths     + self.image_paths
         self.bboxes          = self.bboxes          + self.bboxes
-        self.image_class_id  = self.image_class_id  + self.image_class_id
+        self.obj_class  = self.obj_class  + self.obj_class
         self.keypoint_cls    = self.keypoint_cls    + self.keypoint_cls
         self.keypoint_loc    = self.keypoint_loc    + self.keypoint_loc
         self.uids            = self.uids            + self.uids

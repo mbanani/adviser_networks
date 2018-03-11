@@ -5,7 +5,7 @@ import torch.utils.data.distributed
 import numpy                    as np
 import torchvision.transforms   as transforms
 
-from datasets                   import pascal3d_kp, advisee_dataset, birdsnap_kp
+from datasets                   import pascal3d_kp, advisee_dataset, birdsnap_kp, CUB_kp
 from util                       import Paths
 from IPython                    import embed
 
@@ -55,6 +55,33 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
         valid = 0.0
         flip  = False
 
+    elif dataset == "birdsnap":
+        dataset_root        = '/z/home/mbanani/datasets/birdsnap'
+        # preprocessed_root   = "/z/home/mbanani/datasets/birdsnap_preprocess_227"
+        preprocessed_root   = "/home/mbanani/birdsnap_preprocessed_227/"
+        map_size            = 46
+
+        csv_train   = os.path.join(dataset_root, 'birdsnap_train.txt')
+        csv_test    = os.path.join(dataset_root, 'birdsnap_test.txt')
+
+        train_set   = birdsnap_kp(  csv_train, dataset_root,
+                                    preprocessed_root = preprocessed_root,
+                                    image_size  = image_size,
+                                    map_size    = map_size,
+                                    transform   =  new_transform,
+                                    unique      = True)
+
+        test_set    = birdsnap_kp(  csv_test,  dataset_root,
+                                    preprocessed_root = preprocessed_root,
+                                    image_size  = image_size,
+                                    map_size    = map_size,
+                                    transform   =  new_transform,
+                                    unique      = True)
+
+        valid = 0.0
+        flip  = False
+
+
     elif dataset == "birdsnapKP":
         dataset_root        = '/z/home/mbanani/datasets/birdsnap'
         # preprocessed_root   = "/z/home/mbanani/datasets/birdsnap_preprocess_227"
@@ -66,15 +93,69 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
 
         train_set   = birdsnap_kp(  csv_train, dataset_root,
                                     preprocessed_root = preprocessed_root,
-                                    image_size = image_size,
-                                    map_size= map_size,
-                                    transform =  new_transform)
+                                    image_size  = image_size,
+                                    map_size    = map_size,
+                                    transform   =  new_transform,
+                                    unique      = False)
 
         test_set    = birdsnap_kp(  csv_test,  dataset_root,
                                     preprocessed_root = preprocessed_root,
-                                    image_size = image_size,
-                                    map_size= map_size,
-                                    transform =  new_transform)
+                                    image_size  = image_size,
+                                    map_size    = map_size,
+                                    transform   =  new_transform,
+                                    unique      = False)
+
+        valid = 0.0
+        flip  = False
+
+    elif dataset == "CUB":
+        dataset_root        = '/z/home/mbanani/datasets/CUB_200_2011'
+        preprocessed_root   = "/home/mbanani/CUB_preprocessed_227"
+        # preprocessed_root   = "/home/mbanani/CUB_preprocessed_227/"
+        map_size            = 46
+
+        csv_train   = os.path.join(dataset_root, 'CUB_train_csv.txt')
+        csv_test    = os.path.join(dataset_root, 'CUB_test_csv.txt')
+
+        train_set   = CUB_kp(   csv_train, dataset_root,
+                                preprocessed_root = preprocessed_root,
+                                image_size  = image_size,
+                                map_size    = map_size,
+                                transform   =  new_transform,
+                                unique      = True)
+
+        test_set    = CUB_kp(   csv_test,  dataset_root,
+                                preprocessed_root = preprocessed_root,
+                                image_size  = image_size,
+                                map_size    = map_size,
+                                transform   =  new_transform,
+                                unique      = True)
+
+        valid = 0.0
+        flip  = False
+
+    elif dataset == "CUB_kp":
+        dataset_root        = '/z/home/mbanani/datasets/CUB_200_2011'
+        preprocessed_root   = "/home/mbanani/CUB_preprocessed_227"
+        # preprocessed_root   = "/home/mbanani/CUB_preprocessed_227/"
+        map_size            = 46
+
+        csv_train   = os.path.join(dataset_root, 'CUB_train_csv.txt')
+        csv_test    = os.path.join(dataset_root, 'CUB_test_csv.txt')
+
+        train_set   = CUB_kp(   csv_train, dataset_root,
+                                preprocessed_root = preprocessed_root,
+                                image_size = image_size,
+                                map_size= map_size,
+                                transform =  new_transform,
+                                unique      = False)
+
+        test_set    = CUB_kp(   csv_test,  dataset_root,
+                                preprocessed_root = preprocessed_root,
+                                image_size = image_size,
+                                map_size= map_size,
+                                transform =  new_transform,
+                                unique      = False)
 
         valid = 0.0
         flip  = False
