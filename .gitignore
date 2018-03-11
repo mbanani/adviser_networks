@@ -9,6 +9,7 @@ test.py
 data/*.csv
 data/*.txt
 *.o*
+.nfs*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
