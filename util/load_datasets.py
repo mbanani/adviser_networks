@@ -57,7 +57,8 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
 
     elif dataset == "birdsnapKP":
         dataset_root        = '/z/home/mbanani/datasets/birdsnap'
-        preprocessed_root   = "/z/home/mbanani/datasets/birdsnap_preprocess_227"
+        # preprocessed_root   = "/z/home/mbanani/datasets/birdsnap_preprocess_227"
+        preprocessed_root   = "/home/mbanani/birdsnap_preprocessed_227/"
         map_size            = 46
 
         csv_train   = os.path.join(dataset_root, 'birdsnap_train.txt')

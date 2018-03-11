@@ -10,8 +10,8 @@ from IPython import embed
 import torch
 
 from util                       import tf_logger, Paths
-from util                       import get_data_loaders, vp_metrics
-from models                     import ch_alexBird
+from util                       import get_data_loaders, fg_metrics
+from models                     import ch_alexBird, alexBird
 from util.torch_utils           import to_var, save_checkpoint
 from torch.optim.lr_scheduler   import MultiStepLR
 
@@ -20,33 +20,40 @@ def main(args):
 
 
     print "#############  Read in Database   ##############"
-    train_loader, valid_loader, test_loader = get_data_loaders(   dataset     = args.dataset,
-                                                    batch_size  = args.batch_size,
-                                                    num_workers = args.num_workers,
-                                                    model       = args.model,
-                                                    flip        = args.flip,
-                                                    num_classes = args.num_classes,
-                                                    valid       = 0.0)
+    train_loader, valid_loader, test_loader = get_data_loaders( dataset     = args.dataset,
+                                                                batch_size  = args.batch_size,
+                                                                num_workers = args.num_workers,
+                                                                model       = args.model,
+                                                                flip        = args.flip,
+                                                                num_classes = args.num_classes,
+                                                                valid       = 0.0,
+                                                                parallel    = args.world_size > 1)
 
-        print "#############  Initiate Model     ##############"
-        if args.model == 'ch_alexbird':
-            model = ch_alexBird(batch_norm = False)
-        else:
-            print "Error: unknown model choice. Exiting."
-            exit()
+    print "#############  Initiate Model     ##############"
+    if args.model == 'alexBird':
+        model = alexBird()
+        args.no_keypoint = True
+    elif args.model == 'ch_alexBird':
+        model = ch_alexBird()
+        args.no_keypoint = False
+    else:
+        print "Error: unknown model choice. Exiting."
+        exit()
 
-        # Loss
-        if args.loss == 'cross_entropy':
-            crit = torch.nn.CrossEntropyLoss()
-        else:
-            print "Error: unknown loss choice. Exiting."
-            exit()
+    # Loss
+    if args.loss == 'cross_entropy':
+        criterion = torch.nn.CrossEntropyLoss()
+        criterion.cuda()
+    else:
+        print "Error: unknown loss choice. Exiting."
+        exit()
 
-        if args.just_attention:
-            params = list(model.map_linear.parameters()) +list(model.cls_linear.parameters())
-            params = params + list(model.kp_softmax.parameters()) +list(model.fusion.parameters())
-        else:
-            params = list(model.parameters())
+    if args.just_attention:
+        assert False, "to do! implement just attention for ch_models"
+        params = list(model.map_linear.parameters()) +list(model.cls_linear.parameters())
+        params = params + list(model.kp_softmax.parameters()) +list(model.fusion.parameters())
+    else:
+        params = list(model.parameters())
 
     # Optimizer
     if args.optimizer == 'adam':
@@ -92,7 +99,7 @@ def main(args):
     for epoch in range(0, args.num_epochs):
 
         if epoch % args.eval_epoch == 0:
-            if 'pascal' in args.dataset and args.evaluate_train:
+            if args.evaluate_train:
                 _, _ = eval_step(   model       = model,
                                     data_loader = train_loader,
                                     criterion   = criterion,
@@ -108,6 +115,7 @@ def main(args):
                                                 datasplit   = "test")
 
             if valid_loader != None:
+                assert False, "proper sampling for validation vs training not implemented yet!"
                 curr_loss, curr_wacc = eval_step(   model       = model,
                                                     data_loader = valid_loader,
                                                     criterion   = criterion,
@@ -118,7 +126,7 @@ def main(args):
 
         if args.evaluate_only:
             exit()
-        #
+
         if epoch % args.save_epoch == 0 and epoch > 0:
 
             args = save_checkpoint(  model      = model,
@@ -184,18 +192,20 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
 
         loss = criterion(preds, labels)
 
-        loss_sum += loss.data[0]
+        curr_loss = loss.data.cpu().item()
+        loss_sum += curr_loss
 
         loss.backward()
         optimizer.step()
 
-        # Log losses
-        logger.add_scalar_value("(" + args.dataset + ") Loss/train", loss.data[0] , step=step + i)
+        # # Log losses
+        logger.add_scalar_value("(" + args.dataset + ") Loss/train", curr_loss , step=step + i)
 
         processing_time += time.time() - training_time
 
         # Print log info
         if i % args.log_rate == 0 and i > 0:
+            # print "Epoch [%d/%d] Step [%d/%d]" %( epoch, args.num_epochs, i, total_step)
             time_diff = time.time() - batch_time
 
             curr_batch_time = time_diff / (1.*args.log_rate)
@@ -208,6 +218,7 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
                                                                                                                         loss_sum / float(counter),
                                                                                                                         curr_batch_time,
                                                                                                                         curr_time_left / 60.)
+
 
             logger.add_scalar_value("Misc/batch time (s)",    curr_batch_time,        step=step + i)
             logger.add_scalar_value("Misc/Train_%",           curr_train_per,         step=step + i)
@@ -238,9 +249,9 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
     total_step      = len(data_loader)
     start_time      = time.time()
     epoch_loss      = 0.
-    results_dict    = vp_metrics(args.num_classes)
+    results_dict    = fg_metrics(args.num_classes)
 
-    for i, (images, labels, kp_map, kp_class, key_uid) in enumerate(train_loader):
+    for i, (images, labels, kp_map, kp_class, key_uid) in enumerate(data_loader):
 
         if i % args.log_rate == 0:
             print "Evaluation of %s [%d/%d] Time Elapsed: %f " % (datasplit, i, total_step, time.time() - start_time)
@@ -254,50 +265,45 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
         else:
             preds = model(images, kp_map, kp_class)
 
-        # embed()
-        object_class  = to_var(obj_class)
-        epoch_loss_a += criterion(azim, azim_label, object_class).data[0]
-        epoch_loss_e += criterion(elev, elev_label, object_class).data[0]
-        epoch_loss_t += criterion(tilt, tilt_label, object_class).data[0]
+        epoch_loss   += criterion(preds, labels).data.cpu().item()
 
-        results_dict.update_dict( key_uid,
-                            [azim.data.cpu().numpy(), elev.data.cpu().numpy(), tilt.data.cpu().numpy()],
-                            [azim_label.data.cpu().numpy(), elev_label.data.cpu().numpy(), tilt_label.data.cpu().numpy()])
+        # Labels not needed as class can be found in uid
+        results_dict.update_dict( key_uid, preds.data.cpu().numpy())
 
-        # results_dict.update_dict( object_class.data.cpu().numpy(),
-        #                     [azim.data.cpu().numpy(), elev.data.cpu().numpy(), tilt.data.cpu().numpy()],
-        #                     [azim_label.data.cpu().numpy(), elev_label.data.cpu().numpy(), tilt_label.data.cpu().numpy()])
 
-    type_accuracy, type_total, type_geo_dist = results_dict.metrics()
-
-    geo_dist_median = [np.median(type_dist) * 180. / np.pi for type_dist in type_geo_dist if type_dist != [] ]
-    type_accuracy   = [ type_accuracy[i] * 100. for i in range(0, len(type_accuracy)) if  type_total[i] > 0]
-    w_acc           = np.mean(type_accuracy)
-
-    print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    print "Type Acc_pi/6 : ", type_accuracy, " -> ", w_acc, " %"
-    print "Type Median   : ", [ int(1000 * a_type_med) / 1000. for a_type_med in geo_dist_median ], " -> ", int(1000 * np.mean(geo_dist_median)) / 1000., " degrees"
-    print "Type Loss     : ", [epoch_loss_a/total_step, epoch_loss_e/total_step, epoch_loss_t/total_step], " -> ", (epoch_loss_a + epoch_loss_e + epoch_loss_t ) / total_step
-    print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-
-    logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_mean",   np.mean(geo_dist_median),step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_bus",    geo_dist_median[0],step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_car",    geo_dist_median[1],step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Median Geodsic Error/" + datasplit + "_mbike",  geo_dist_median[2],step=step)
-
-    logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_mean",     np.mean(type_accuracy),step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_bus",      type_accuracy[0],step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_car",      type_accuracy[1],step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Accuracy_30deg/" + datasplit + "_mbike",    type_accuracy[2],step=step)
-
-    logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_azim",  epoch_loss_a / total_step, step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_elev",  epoch_loss_e / total_step, step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_tilt",  epoch_loss_t / total_step, step=step)
-    logger.add_scalar_value("(" + args.dataset + ") Viewpoint Loss/" + datasplit +"_sum",   (epoch_loss_a + epoch_loss_e + epoch_loss_t ) / total_step, step=step)
-
+    accuracy1, accuracy5, accuracy10, total_count = results_dict.metrics()
     epoch_loss = float(epoch_loss)
+
+    acc1    = np.sum(accuracy1  * total_count) / np.sum(total_count) * 100
+    acc5    = np.sum(accuracy5  * total_count) / np.sum(total_count) * 100
+    acc10   = np.sum(accuracy10 * total_count) / np.sum(total_count) * 100
+
+    wacc1   = np.mean(accuracy1 ) * 100
+    wacc5   = np.mean(accuracy5 ) * 100
+    wacc10  = np.mean(accuracy10) * 100
+
+
+    print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+    print "Accuracy@1       : ", acc1 , " %"
+    print "Accuracy@5       : ", acc5 , " %"
+    print "Accuracy@10      : ", acc10, " %"
+    print ""
+    print "W. Accuracy@1    : ", wacc1 , " %"
+    print "W. Accuracy@5    : ", wacc5 , " %"
+    print "W. Accuracy@10   : ", wacc10, " %"
+    print "Loss         : ", epoch_loss
+    print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+
+    logger.add_scalar_value("(" + args.dataset + ") Loss/"              + datasplit, epoch_loss, step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Accuracy@1/"        + datasplit, acc1,   step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Accuracy@5/"        + datasplit, acc5,   step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") Accuracy@10/"       + datasplit, acc10,  step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") W. Accuracy@1/"     + datasplit, wacc1,  step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") W. Accuracy@5/"     + datasplit, wacc5,  step=step + i)
+    logger.add_scalar_value("(" + args.dataset + ") W. Accuracy@10/"    + datasplit, wacc10, step=step + i)
+
     assert type(epoch_loss) == float, 'Error: Loss type is not float'
-    return epoch_loss, w_acc
+    return epoch_loss, acc10
 
 
 
@@ -306,34 +312,32 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # logging parameters
-    parser.add_argument('--save_epoch',      type=int , default=10)
-    parser.add_argument('--eval_epoch',      type=int , default=1)
-    parser.add_argument('--eval_step',       type=int , default=1000)
-    parser.add_argument('--log_rate',        type=int, default=10)
-    parser.add_argument('--num_workers',     type=int, default=7)
+    parser.add_argument('--save_epoch',     type=int , default=10)
+    parser.add_argument('--eval_epoch',     type=int , default=1)
+    parser.add_argument('--eval_step',      type=int , default=1000)
+    parser.add_argument('--log_rate',       type=int, default=10)
+    parser.add_argument('--num_workers',    type=int, default=7)
 
     # training parameters
-    parser.add_argument('--num_epochs',      type=int, default=100)
-    parser.add_argument('--batch_size',      type=int, default=256)
-    parser.add_argument('--lr',              type=float, default=0.01)
-    parser.add_argument('--optimizer',       type=str,default='sgd')
+    parser.add_argument('--num_epochs',     type=int, default=100)
+    parser.add_argument('--batch_size',     type=int, default=64)
+    parser.add_argument('--lr',             type=float, default=0.01)
+    parser.add_argument('--optimizer',      type=str,default='sgd')
+    parser.add_argument('--loss',           type=str, default='cross_entropy')
 
     # experiment details
-    parser.add_argument('--dataset',         type=str, default='pascalKP')
-    parser.add_argument('--model',           type=str, default='pretrained_clickhere')
+    parser.add_argument('--dataset',         type=str, default='birdsnapKP')
+    parser.add_argument('--model',           type=str, default='alexBird')
     parser.add_argument('--experiment_name', type=str, default= 'Test')
     parser.add_argument('--evaluate_only',   action="store_true",default=False)
     parser.add_argument('--evaluate_train',  action="store_true",default=False)
     parser.add_argument('--flip',            action="store_true",default=False)
     parser.add_argument('--just_attention',  action="store_true",default=False)
-    parser.add_argument('--num_classes',     type=int, default=12)
+    parser.add_argument('--num_classes',     type=int, default=500)
     parser.add_argument('--resume',          type=str, default=None)
     parser.add_argument('--world_size',      type=int, default=1)
-    parser.add_argument('--main',            action="store_true",default=False)
-
 
     args = parser.parse_args()
-
 
     root_dir                    = os.path.dirname(os.path.abspath(__file__))
     experiment_result_dir       = os.path.join(root_dir, os.path.join('experiments',args.dataset))
@@ -342,15 +346,13 @@ if __name__ == '__main__':
     args.best_loss              = sys.float_info.max
     args.best_acc               = 0.
 
-    # Create model directory
-    if main:
-        if not os.path.exists(experiment_result_dir):
-            os.makedirs(experiment_result_dir)
-        if not os.path.exists(args.experiment_path):
-            os.makedirs(args.experiment_path)
 
-        print "Experiment path is : ", args.experiment_path
-        print(args)
+    # Create model directory
+    if not os.path.exists(experiment_result_dir):
+        os.makedirs(experiment_result_dir)
+    if not os.path.exists(args.experiment_path):
+        os.makedirs(args.experiment_path)
+
 
     # Define Logger
     log_name    = args.full_experiment_name

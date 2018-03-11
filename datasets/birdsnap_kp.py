@@ -14,8 +14,15 @@ from IPython import embed
 
 class birdsnap_kp(torch.utils.data.Dataset):
 
-    def __init__(self, csv_path, dataset_dir, preprocessed_root = None, image_size = 227, map_size=46, transform = None):
+    def __init__(self, csv_path, dataset_dir, preprocessed_root = None, image_size = 227, map_size=46, transform = None, unique = True):
 
+
+        if preprocessed_root:
+            self.preprocessed = True
+            self.image_root = preprocessed_root
+        else:
+            self.preprocessed = False
+            self.image_root = os.path.join(dataset_dir, "images")
 
         self.keypoint_list = ['left_cheek', 'right_cheek',
                              'left_leg', 'right_leg',
@@ -47,42 +54,54 @@ class birdsnap_kp(torch.utils.data.Dataset):
 
         ommited = 0
 
-        for i in range(0, len(s_kps)):
-            for j in range(0, 15):
-                # I think 2*j because it's stored as kpx kpy in order ? TODO verify this
-                if s_kps[i][2*j] != -1:
-                    kpx = float(s_kps[i][2*j]) / float(s_bbs[i][2] - s_bbs[i][0])
-                    kpy = float(s_kps[i][2*j + 1]) / float(s_bbs[i][3] - s_bbs[i][1])
-                    if kpx > 1. or kpx < 0. or kpy > 1. or kpy < 0.:
-                        # print "Incorrect kp values (", kpx, ", ", kpy, "). ommited."
-                        ommited += 1
-                    else:
-                        im_paths.append(s_im_paths[i])
-                        bbs.append(s_bbs[i])
-                        im_cls.append(s_img_class[i])
-                        im_cls_id.append(s_img_class_id[i])
-                        # NOTE: current CSV generations gives KP relative to bbox!!!
-                        kp_loc.append([kpx, kpy])
-                        kp_cls.append(j)
+        im_paths    = []
+        bbs         = []
+        im_cls      = []
+        im_cls_id   = []
+        kp_loc      = []
+        kp_cls      = []
+        uids        = []
 
+        if unique:
+            for i in range(0, len(s_kps)):
+                im_paths.append(os.path.join(self.image_root, s_im_paths[i]))
+                bbs.append(tuple(s_bbs[i]))
+                im_cls.append(s_img_class[i])
+                im_cls_id.append(s_img_class_id[i])
+                kp_loc.append([0, 0])
+                kp_cls.append(0)
+                uids.append(im_paths[i] + '_objc' + str(im_cls_id[i]) + '_kpc' + str(kp_cls[i]) )
 
-        bboxes = [tuple(bbox) for bbox in bboxes]
+        else:
+            for i in range(0, len(s_kps)):
+                for j in range(0, 15):
+                    # I think 2*j because it's stored as kpx kpy in order ? TODO verify this
+                    if s_kps[i][2*j] != -1:
+                        kpx = float(s_kps[i][2*j]) / float(s_bbs[i][2] - s_bbs[i][0])
+                        kpy = float(s_kps[i][2*j + 1]) / float(s_bbs[i][3] - s_bbs[i][1])
+                        if kpx > 1. or kpx < 0. or kpy > 1. or kpy < 0.:
+                            # print "Incorrect kp values (", kpx, ", ", kpy, "). ommited."
+                            ommited += 1
+                        else:
+                            im_paths.append(s_im_paths[i])
+                            bbs.append(tuple(s_bbs[i]))
+                            im_cls.append(s_img_class[i])
+                            im_cls_id.append(s_img_class_id[i])
+                            # NOTE: current CSV generations gives KP relative to bbox!!!
+                            kp_loc.append([kpx, kpy])
+                            kp_cls.append(j)
+                            uids.append(s_im_paths[i] + '_objc' + str(s_img_class_id[i]) + '_kpc' + str(j) )
+
 
         print "Dataset loaded in ", time.time() - curr_time, " secs."
-        print "Dataset size: ", len(images)
+        print "Dataset size: ", len(im_paths)
         print ommited, " kp-image instances ommited due to keypoint lying outside of bounding box"
 
-        if len(images) == 0:
+        if len(im_paths) == 0:
             raise(RuntimeError("Found 0 images in subfolders of: " + root + "\n"
                 "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
 
 
-        if preprocessed_root:
-            self.preprocessed = True
-            self.image_root = preprocessed_root
-        else:
-            self.preprocessed = False
-            self.image_root = os.path.join(dataset_dir, "images")
 
         self.image_paths    = im_paths
         self.bboxes         = bbs
@@ -91,6 +110,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
         self.keypoint_loc   = kp_loc
         self.keypoint_cls   = kp_cls
         self.flips          = [False] * len(im_paths)
+        self.uids           = uids
 
         self.loader         = self.pil_loader
         self.img_size       = image_size
@@ -111,36 +131,23 @@ class birdsnap_kp(torch.utils.data.Dataset):
             Returns:
             tuple: (image, target) where target is class_index of the target class.
         """
+
+
         # Load and transform image
-        path = os.path.join(self.image_root, self.image_paths[index])
-
-        im_class_id = self.image_class_id[index]
-        bbox        = self.bboxes[index]
-        kp_loc      = self.keypoint_loc[index]
-        kp_cls      = self.keypoint_cls[index]
-        flip        = self.flips[index]
-
-
-        # ASSUMING keypoints are in range [0,1] x [0,1]
-        # kept because it's useful for inception transform
-        inc_bbox    = [0.0, 0.0, 1.0, 1.0]
-
-        img, kp_loc = self.loader(im_path, bbox, flip, inc_bbox, kp_loc)
-
+        img = self.loader(self.image_paths[index], self.bboxes[index], self.flips[index])
         if self.transform is not None:  img = self.transform(img)
 
-        # Generate keypoint map image, and kp class vector
-        kpc_vec  = np.zeros( (15) )
-        kpc_vec[kp_cls] = 1
-        kpm_map  = self.generate_kp_map_chebyshev(kp_loc)
+        # # Generate keypoint map image, and kp class vector
+        # kp_loc      = self.keypoint_loc[index]
+        # kp_cls      = self.keypoint_cls[index]
+        # kpc_vec  = np.zeros( (15) )
+        # kpc_vec[kp_cls] = 1
+        # kpm_map  = self.generate_kp_map_chebyshev(kp_loc)
+        #
+        # kp_class   = torch.from_numpy(kpc_vec).float()
+        # kp_map     = torch.from_numpy(kpm_map).float()
 
-        kp_class   = torch.from_numpy(kpc_vec).float()
-        kp_map     = torch.from_numpy(kpm_map).float()
-
-        # # Generate a unique ID
-        uid = self.image_paths[index] + '_objc' + str(im_class_id) + '_kpc' + str(kp_cls)
-
-        return img, im_class_id, kp_map, kp_class , uid
+        return img, self.image_class_id[index], 0, 0 , self.uids[index]
 
     def __len__(self):
         return self.num_instances
@@ -160,34 +167,11 @@ class birdsnap_kp(torch.utils.data.Dataset):
 
         return image_paths, img_class, img_class_id, bbox, kp_locs
 
-    def pil_loader(self, path, bbox, flip, inc_bbox):
+    def pil_loader(self, path, bbox, flip):
         # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
         with open(path, 'rb') as f:
             with Image.open(f) as img:
                 img = img.convert('RGB')
-
-                if not self.preprocessed:
-                    n_bbox = [0] * 4
-
-                    # bbox ordering left, upper, right , lower
-                    o_width     = bbox[2] - bbox[0]
-                    o_height    = bbox[3] - bbox[1]
-                    n_bbox[0] = bbox[0] + o_width * inc_bbox[0]
-                    n_bbox[2] = bbox[0] + o_width * inc_bbox[2]
-
-                    n_bbox[1] = bbox[1] + o_height * inc_bbox[1]
-                    n_bbox[3] = bbox[1] + o_height * inc_bbox[3]
-
-                    img = img.crop(box=n_bbox)
-                    img = img.resize( (self.img_size, self.img_size), Image.LANCZOS)
-                else:
-                    if not (img.size[0] == img.size[1] == self.img_size):
-                        print "Error: File (%s) was not preprocessed correctly. Exiting." % (path)
-                        exit()
-                    imSize  = img.size[0]
-                    bbox    = tuple([self.img_size * inc_bbox[i] for i in range(0, 4)] )
-                    img     = img.crop(box=bbox)
-                    img     = img.resize( (self.img_size, self.img_size), Image.LANCZOS)
 
                 if flip:
                     img.transpose(Image.FLIP_LEFT_RIGHT)
@@ -337,6 +321,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
         valid_class.flips           = [ self.flips[i]           for i in sorted(set_valid) ]
         valid_class.keypoint_cls    = [ self.keypoint_cls[i]    for i in sorted(set_valid) ]
         valid_class.keypoint_loc    = [ self.keypoint_loc[i]    for i in sorted(set_valid) ]
+        valid_class.uids            = [ self.uids[i]            for i in sorted(set_valid) ]
         valid_class.num_instances   = valid_size
 
 
@@ -347,6 +332,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
         self.flips           = [ self.flips[i]          for i in sorted(set_train) ]
         self.keypoint_cls    = [ self.keypoint_cls[i]   for i in sorted(set_train) ]
         self.keypoint_loc    = [ self.keypoint_loc[i]   for i in sorted(set_train) ]
+        self.uids            = [ self.uids[i]           for i in sorted(set_train) ]
         self.num_instances   = train_size
 
         assert len(self.image_paths) == train_size
@@ -362,6 +348,7 @@ class birdsnap_kp(torch.utils.data.Dataset):
         self.image_class_id  = self.image_class_id  + self.image_class_id
         self.keypoint_cls    = self.keypoint_cls    + self.keypoint_cls
         self.keypoint_loc    = self.keypoint_loc    + self.keypoint_loc
+        self.uids            = self.uids            + self.uids
         self.flip            = self.flip            + [True] * self.num_instances
 
         assert len(self.flip) == len(self.image_paths)

@@ -21,7 +21,7 @@ class alexBird(nn.Module):
         self.alexnet_conv5  = nn.Sequential(*alex_conv5)
         self.alexnet_fc     = nn.Sequential(*alex_fc)
         self.infer          = nn.Sequential(nn.Linear(4096, num_classes),
-                                            nn.Softmax())
+                                            nn.Softmax(dim = -1))
 
         self.init_weights()
 

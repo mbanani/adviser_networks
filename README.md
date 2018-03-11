@@ -40,12 +40,19 @@ If you have any questions, please email me at mbanani@umich.edu.
         - Results `python train_adviser.py --dataset advisee_full --model alexAdviser --temperature 0.01`
             - Accuracy  :  [93.95 89.03 84.07]  -- mean :  89.02
             - Geo Dist  :  [ 3.48  5.75 12.93]  -- mean :  7.39
-    - [x] Implement saving! 
+    - [x] Implement saving!
 - [ ] Implement different form of attentional stream
     - One idea is to apply a cross product to an augmented version of the KPC,
       convolve that, and then use that as the attentional map ?
+     - [x] Implement idea
+     - [x] Test idea -- reaches accuracy of 82%, which is higher than what is achieved by baseline CH-CNN, but lower than R4CNN-FT
+     - [ ] Test reversal of KP-Map; the current method has 1s outside of locations and 0s near it .. which seems counter intuitive
 - [ ] Implement on a different task -- Fine-grained classification
-    - [ ] Augment original dataset wrappers for the task
+    - [x] Augment original dataset wrappers for the task
+    - [ ] Test baseline alexnet methods on bird dataset
+        - ~~test on bird snap~~ doesn't really work, got accuracy of nearly 12%
+        - ~~test on CUB~~ doesn't really work, got accuracy of nearly 12%
+    - [ ] Augment models to apply to new attention scheme
     - [ ] Augment AlexNet to operate over multiple branches
         - Use model pretrained on ImageNet
         - Zero-center and Normalize input to model
@@ -55,6 +62,7 @@ If you have any questions, please email me at mbanani@umich.edu.
 - [ ] Move logging inside of metrics
 - [ ] Add `with torch.no_grad():` to prevent gradient calculation for evaluation
 - [ ] Fix error with `loss_weights`
+- [ ] Move to tensorboardX to avoid internal dependancy on tensorflow
 
 ### Results
 
