@@ -3,6 +3,7 @@ import torch.utils.data as data
 from PIL import Image
 from torchvision import transforms
 
+import torch
 import os
 import numpy as np
 import time
@@ -49,7 +50,38 @@ class CUB_kp(data.Dataset):
         i = 0
         curr_time = time.time()
 
-        im_paths, img_class_id, bbs, kp_cls, kp_locs = self.pandas_csv_to_info(csv_path)
+        im_paths, img_class_id, bbs, kp_cls, s_kp_locs = self.pandas_csv_to_info(csv_path)
+
+        indices_to_remove = []
+        kp_locs = []
+
+        for i in range(0, len(s_kp_locs)):
+            # VERY IMPORTANT ... Correct bounding box calculation .. (CSV is x1,y1, w,h NOT  x1,y1,x2,y2)
+            bbs[i][2] += bbs[i][0]
+            bbs[i][3] += bbs[i][1]
+
+            if (bbs[i][2] == bbs[i][0]) or (bbs[i][3] == bbs[i][1]):
+                indices_to_remove.append(i)
+            else:
+                kp_x = float(s_kp_locs[i][0] - bbs[i][0]) / float(bbs[i][2] - bbs[i][0])
+                kp_y = float(s_kp_locs[i][1] - bbs[i][1]) / float(bbs[i][3] - bbs[i][1])
+
+                if not (kp_x >= 0.0 and kp_x <= 1.0 and kp_y >= 0.0 and kp_y <= 1.0) :
+                    indices_to_remove.append(i)
+                else:
+                    assert kp_x >= 0.0 and kp_x <= 1.0,  "Incrrect KP " + str([kp_x, kp_y]) + " at " + str(i) + " -- " + "BBS: " + str(bbs[i]) + " - kps : " + str(s_kp_locs[i])
+                    assert kp_y >= 0.0 and kp_y <= 1.0,  "Incrrect KP " + str([kp_x, kp_y]) + " at " + str(i) + " -- " + "BBS: " + str(bbs[i]) + " - kps : " + str(s_kp_locs[i])
+                    kp_locs.append(tuple([kp_x, kp_y]))
+
+
+
+        print "Removing ", len(indices_to_remove), " of ", len(im_paths), "for having incorrect bounding boxes"
+        indices_to_remove = indices_to_remove[::-1]
+        for i in indices_to_remove:
+            del im_paths[i]
+            del img_class_id[i]
+            del bbs[i]
+            del kp_cls[i]
 
         # TODO .. generate unique set of images
         if unique:
@@ -69,8 +101,6 @@ class CUB_kp(data.Dataset):
 
 
 
-        # TODO .. assert kp inside of image
-
         # Generate uids and augment im_id
         uids = []
         for i in range(0, len(im_paths)):
@@ -82,7 +112,7 @@ class CUB_kp(data.Dataset):
         print "csv file length: ", size_dataset
 
         bboxes  = [tuple(bbox) for bbox in bbs]
-        kp_locs = [tuple(kpLoc) for kpLoc in kp_locs]
+        # kp_locs = [tuple(kpLoc) for kpLoc in kp_locs]
 
         print "Dataset loaded in ", time.time() - curr_time, " secs."
         print "Dataset size: ", len(im_paths)
@@ -93,7 +123,7 @@ class CUB_kp(data.Dataset):
         self.bboxes             = bboxes
         self.obj_class          = img_class_id
         self.flips              = [False] * len(im_paths)
-        self.keypoint_cls       = kp_cls
+        self.keypoint_cls       = [kpc - 1 for kpc in kp_cls]
         self.keypoint_loc       = kp_locs
         self.uids               = uids
 
@@ -122,17 +152,17 @@ class CUB_kp(data.Dataset):
         img = self.loader(self.image_paths[index], self.bboxes[index], self.flips[index])
         if self.transform is not None:  img = self.transform(img)
 
-        # # Generate keypoint map image, and kp class vector
-        # kp_loc      = self.keypoint_loc[index]
-        # kp_cls      = self.keypoint_cls[index]
-        # kpc_vec  = np.zeros( (15) )
-        # kpc_vec[kp_cls] = 1
-        # kpm_map  = self.generate_kp_map_chebyshev(kp_loc)
-        #
-        # kp_class   = torch.from_numpy(kpc_vec).float()
-        # kp_map     = torch.from_numpy(kpm_map).float()
+        # Generate keypoint map image, and kp class vector
+        kp_loc              = self.keypoint_loc[index]
+        kp_cls              = self.keypoint_cls[index]
+        kp_class            = np.zeros( (15) )
+        kp_class[kp_cls]    = 1
+        kp_map              = self.generate_kp_map_chebyshev(kp_loc)
 
-        return img, self.obj_class[index], 0, 0 , self.uids[index]
+        kp_class   = torch.from_numpy(kp_class).float()
+        kp_map     = torch.from_numpy(kp_map).float()
+
+        return img, self.obj_class[index], kp_map, kp_class , self.uids[index]
 
     def __len__(self):
         return self.num_instances
@@ -244,6 +274,7 @@ class CUB_kp(data.Dataset):
         assert kp[1] >= 0. and kp[1] <= 1., kp
         kp_map = np.ndarray( (self.map_size, self.map_size) )
 
+        kp = list(kp)
 
         kp[0] = kp[0] * self.map_size
         kp[1] = kp[1] * self.map_size

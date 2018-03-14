@@ -69,27 +69,27 @@ class birdsnap_kp(torch.utils.data.Dataset):
                 im_cls_id.append(s_img_class_id[i])
                 kp_loc.append([0, 0])
                 kp_cls.append(0)
-                uids.append(im_paths[i] + '_objc' + str(im_cls_id[i]) + '_kpc' + str(kp_cls[i]) )
+                uids.append(im_paths[i] + '_objc' + str(s_img_class_id[i]) + '_kpc' + str(kp_cls[i]) )
 
         else:
             for i in range(0, len(s_kps)):
                 for j in range(0, 15):
                     # I think 2*j because it's stored as kpx kpy in order ? TODO verify this
                     if s_kps[i][2*j] != -1:
-                        kpx = float(s_kps[i][2*j]) / float(s_bbs[i][2] - s_bbs[i][0])
-                        kpy = float(s_kps[i][2*j + 1]) / float(s_bbs[i][3] - s_bbs[i][1])
+                        kpx = float(s_kps[i][2*j] )     / float(s_bbs[i][2] - s_bbs[i][0])
+                        kpy = float(s_kps[i][2*j + 1])  / float(s_bbs[i][3] - s_bbs[i][1])
                         if kpx > 1. or kpx < 0. or kpy > 1. or kpy < 0.:
                             # print "Incorrect kp values (", kpx, ", ", kpy, "). ommited."
                             ommited += 1
                         else:
-                            im_paths.append(s_im_paths[i])
+                            im_paths.append(os.path.join(self.image_root, s_im_paths[i]))
                             bbs.append(tuple(s_bbs[i]))
                             im_cls.append(s_img_class[i])
                             im_cls_id.append(s_img_class_id[i])
                             # NOTE: current CSV generations gives KP relative to bbox!!!
                             kp_loc.append([kpx, kpy])
                             kp_cls.append(j)
-                            uids.append(s_im_paths[i] + '_objc' + str(s_img_class_id[i]) + '_kpc' + str(j) )
+                            uids.append(os.path.join(self.image_root, s_im_paths[i]) + '_objc' + str(s_img_class_id[i]) + '_kpc' + str(j) )
 
 
         print "Dataset loaded in ", time.time() - curr_time, " secs."
@@ -133,17 +133,17 @@ class birdsnap_kp(torch.utils.data.Dataset):
         img = self.loader(self.image_paths[index], self.bboxes[index], self.flips[index])
         if self.transform is not None:  img = self.transform(img)
 
-        # # Generate keypoint map image, and kp class vector
-        # kp_loc      = self.keypoint_loc[index]
-        # kp_cls      = self.keypoint_cls[index]
-        # kpc_vec  = np.zeros( (15) )
-        # kpc_vec[kp_cls] = 1
-        # kpm_map  = self.generate_kp_map_chebyshev(kp_loc)
-        #
-        # kp_class   = torch.from_numpy(kpc_vec).float()
-        # kp_map     = torch.from_numpy(kpm_map).float()
+        # Generate keypoint map image, and kp class vector
+        kp_loc          = self.keypoint_loc[index]
+        kp_cls          = self.keypoint_cls[index]
+        kpc_vec         = np.zeros( (15) )
+        kpc_vec[kp_cls] = 1
+        kpm_map         = self.generate_kp_map_chebyshev(kp_loc)
 
-        return img, self.obj_class[index], 0, 0 , self.uids[index]
+        kpc_vec         = torch.from_numpy(kpc_vec).float()
+        kpm_map         = torch.from_numpy(kpm_map).float()
+
+        return img, self.obj_class[index], kpm_map, kpc_vec, self.uids[index]
 
     def __len__(self):
         return self.num_instances

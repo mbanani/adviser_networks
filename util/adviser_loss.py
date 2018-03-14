@@ -89,7 +89,7 @@ class adviser_loss(nn.Module):
 
                 losses[curr_class] += weights[curr_class] * F.mse_loss( preds[inst_id, start_index:end_index],
                                                                 labels[inst_id, start_index:end_index],
-                                                                size_average=False)
+                                                                size_average=True).sqrt()
 
         loss = losses[0] + losses[1] + losses[2] #+ loss_1 + loss_2
         loss = loss / batch_size

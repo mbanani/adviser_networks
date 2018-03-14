@@ -20,8 +20,7 @@ class alexBird(nn.Module):
         self.alexnet_conv4  = nn.Sequential(*alex_conv4)
         self.alexnet_conv5  = nn.Sequential(*alex_conv5)
         self.alexnet_fc     = nn.Sequential(*alex_fc)
-        self.infer          = nn.Sequential(nn.Linear(4096, num_classes),
-                                            nn.Softmax(dim = -1))
+        self.infer          = nn.Sequential(nn.Linear(4096, num_classes))
 
         self.init_weights()
 
@@ -30,8 +29,8 @@ class alexBird(nn.Module):
         self.infer[0].weight.data.normal_(0.0, 0.02)
         self.infer[0].bias.data.fill_(0)
 
-    def forward(self, images):
-        features = self.alexnet_conv4(images)
+    def forward(self, features):
+        features = self.alexnet_conv4(features)
         features = self.alexnet_conv5(features)
         features = features.view(features.size(0), 256 * 6 * 6)
         features = self.alexnet_fc(features)

@@ -4,3 +4,4 @@ from .alexAdviser           import *
 
 from .alexBird              import *
 from .ch_alexBird           import *
+from .resBird           import *

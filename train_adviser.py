@@ -25,7 +25,8 @@ def main(args):
                                                                 model               = args.model,
                                                                 flip                = args.flip,
                                                                 num_classes         = args.num_classes,
-                                                                valid               = 0.0)
+                                                                valid               = 0.0,
+                                                                regression          = args.regression)
 
 
     # initiate metrics
@@ -42,6 +43,7 @@ def main(args):
     if args.model == 'alexAdviser':
         assert Paths.clickhere_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
         weights = torch.load(Paths.clickhere_weights)
+        # weights = torch.load(Paths.render4cnn_weights)
         model = alexAdviser(weights = weights)
     else:
         assert False, "Error: unknown model choice."
@@ -120,6 +122,12 @@ def main(args):
                     epoch        = epoch,
                     step         = epoch * total_step)
 
+    curr_loss, curr_wacc, qual_dict = eval_step(    model = model,
+                                data_loader = test_loader,
+                                criterion   = criterion,
+                                step        = epoch * total_step,
+                                results_dict = metrics_test,
+                                datasplit   = "test")
     # Final save of the model
     args = save_checkpoint(  model      = model,
                              optimizer  = optimizer,
@@ -145,7 +153,7 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
         training_time = time.time()
 
         # Set mini-batch dataset
-        images  = to_var(images, volatile=False)
+        images  = to_var(images)
         label   = to_var(label)
 
         # Forward, Backward and Optimize
@@ -203,8 +211,8 @@ def eval_step( model, data_loader, criterion, step, datasplit, results_dict):
 
     for i, (images, label, obj_class, key) in enumerate(data_loader):
 
-        images  = to_var(images, volatile=True)
-        label   = to_var(label, volatile=True)
+        images  = to_var(images)
+        label   = to_var(label)
 
         model.zero_grad()
         pred = model(images)
@@ -283,6 +291,7 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate_only',   action="store_true",default=False)
     parser.add_argument('--evaluate_train',  action="store_true",default=False)
     parser.add_argument('--flip',            action="store_true",default=False)
+    parser.add_argument('--regression',      action="store_true",default=False)
     parser.add_argument('--num_classes',     type=int, default=34)
     parser.add_argument('--temperature',     type=float, default=1.0)
 

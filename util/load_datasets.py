@@ -12,9 +12,8 @@ from IPython                    import embed
 root_dir     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, flip = False, valid = 0.0, parallel = False):
+def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, flip = False, valid = 0.0, parallel = False, image_size = 227, regression = False):
 
-    image_size = 227
     old_transform  = transforms.Compose([   transforms.ToTensor(),
                                             transforms.Normalize(   mean=(104/255., 116.6/255., 122.6/255.),
                                                                     std=(1./255., 1./255., 1./255.) ) ])
@@ -49,16 +48,31 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
         kp_dict_train   = np.load(Paths.kp_dict_chcnn_train).item()
         kp_dict_test    = np.load(Paths.kp_dict_chcnn_ftAtt_test).item()
 
-        train_set       = advisee_dataset(kp_dict_train, dataset_root = dataset_root, transform =  old_transform)
-        test_set        = advisee_dataset(kp_dict_test,  dataset_root = dataset_root, transform =  old_transform)
+        train_set       = advisee_dataset(kp_dict_train, dataset_root = dataset_root, transform =  old_transform, regression = regression)
+        test_set        = advisee_dataset(kp_dict_test,  dataset_root = dataset_root, transform =  old_transform, regression = regression)
 
         valid = 0.0
+        flip  = False
+
+    elif dataset == "advisee_pascal_test":
+
+        dataset_root = '/z/home/mbanani/datasets/pascal3d'
+
+        # kp_dict_train   = np.load(Paths.kp_dict_chcnn_ftAtt_train).item()
+        kp_dict_test    = np.load(Paths.kp_dict_chcnn_ftAtt_test).item()
+
+        train_set       = advisee_dataset(kp_dict_test, dataset_root = dataset_root, transform =  old_transform, regression = regression)
+        test_set        = train_set.generate_validation(0.3)
+
         flip  = False
 
     elif dataset == "birdsnap":
         dataset_root        = '/z/home/mbanani/datasets/birdsnap'
         # preprocessed_root   = "/z/home/mbanani/datasets/birdsnap_preprocess_227"
-        preprocessed_root   = "/home/mbanani/birdsnap_preprocessed_227/"
+        if image_size == 227:
+            preprocessed_root   = "/home/mbanani/birdsnap_preprocessed_227/"
+        else:
+            preprocessed_root   = None
         map_size            = 46
 
         csv_train   = os.path.join(dataset_root, 'birdsnap_train.txt')
@@ -85,7 +99,10 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
     elif dataset == "birdsnapKP":
         dataset_root        = '/z/home/mbanani/datasets/birdsnap'
         # preprocessed_root   = "/z/home/mbanani/datasets/birdsnap_preprocess_227"
-        preprocessed_root   = "/home/mbanani/birdsnap_preprocessed_227/"
+        if image_size == 227:
+            preprocessed_root   = "/home/mbanani/birdsnap_preprocessed_227/"
+        else:
+            preprocessed_root   = None
         map_size            = 46
 
         csv_train   = os.path.join(dataset_root, 'birdsnap_train.txt')
@@ -110,7 +127,10 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
 
     elif dataset == "CUB":
         dataset_root        = '/z/home/mbanani/datasets/CUB_200_2011'
-        preprocessed_root   = "/home/mbanani/CUB_preprocessed_227"
+        if image_size == 227:
+            preprocessed_root   = "/home/mbanani/CUB_preprocessed_227"
+        else:
+            preprocessed_root   = None
         # preprocessed_root   = "/home/mbanani/CUB_preprocessed_227/"
         map_size            = 46
 
@@ -136,7 +156,10 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
 
     elif dataset == "CUB_kp":
         dataset_root        = '/z/home/mbanani/datasets/CUB_200_2011'
-        preprocessed_root   = "/home/mbanani/CUB_preprocessed_227"
+        if image_size == 227:
+            preprocessed_root   = "/home/mbanani/CUB_preprocessed_227"
+        else:
+            preprocessed_root   = None
         # preprocessed_root   = "/home/mbanani/CUB_preprocessed_227/"
         map_size            = 46
 

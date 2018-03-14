@@ -21,17 +21,19 @@ class advisee_dataset(data.Dataset):
             csv_path    path containing instance data
             augment     boolean for flipping images
     """
-    def __init__(self, kp_dict, dataset_root = None, im_size = 227, transform = None, temperature=1.0, test_set = False):
+    def __init__(self, kp_dict, dataset_root = None, im_size = 227, transform = None, temperature=1.0, regression = False):
 
         start_time = time.time()
 
         assert kp_dict is not None
+
 
         # dataset parameters
         self.root           = dataset_root
         self.loader         = self.pil_loader
         self.num_classes    = 34
         self.temperature    = temperature
+        self.regression     = regression
 
 
         # Load instance data from csv-file
@@ -68,11 +70,17 @@ class advisee_dataset(data.Dataset):
         output      = np.zeros(self.num_classes)
         geo_list    = geo_dict.keys()
         geo_dists   = [geo_dict[geo_list[i]] for i in range(0, len(geo_list)) ]
-        for i in range(0, len(geo_list)):
-            # output[geo_list[i]] = -1.0 * geo_dists[i]/self.temperature
-            output[geo_list[i]] = np.exp(-1.0 * geo_dists[i]/self.temperature)
 
-        output = output / np.sum(output)
+        if self.regression :
+            output  = np.ones(self.num_classes) * np.pi * 2 / self.temperature
+
+            output[geo_list[i]] = geo_dists[i] / self.temperature
+        else:
+            for i in range(0, len(geo_list)):
+                # output[geo_list[i]] = -1.0 * geo_dists[i]/self.temperature
+                output[geo_list[i]] = np.exp(-1.0 * geo_dists[i]/self.temperature)
+
+            output = output / np.sum(output)
 
         return output
 
@@ -168,13 +176,13 @@ class advisee_dataset(data.Dataset):
         random.seed(a = 6306819796159687115)
 
         valid_class     = copy.deepcopy(self)
-
+        #
         # valid_size      = int(ratio * self.num_instances)
         # train_size      = self.num_instances - valid_size
 
         train_instances = [[], [], []]
         for i in range(0, self.num_instances):
-            [self.obj_cls[i]].append(i)
+            train_instances[self.obj_cls[i]].append(i)
 
         valid_instances =   random.sample(train_instances[0], int(len(train_instances[0]) * ratio)) + random.sample(train_instances[1], int(len(train_instances[1]) * ratio)) + random.sample(train_instances[2], int(len(train_instances[2]) * ratio))
 
@@ -200,5 +208,19 @@ class advisee_dataset(data.Dataset):
         self.labels              = [ self.labels[i]         for i in sorted(train_instances) ]
         self.flip                = [ self.flip[i]           for i in sorted(train_instances) ]
         self.num_instances       = len(train_instances)
+
+        new_train_dict = {}
+        new_valid_dict = {}
+
+        for i in range(0, len(self.im_paths)):
+            new_name = self.im_paths[i] + "_" + "-".join([str(self.bbox[i][j]) for j in range(0,4)])
+            new_train_dict[new_name] = self.kp_dict[new_name]
+
+        for i in range(0, len(valid_class.im_paths)):
+            new_name = valid_class.im_paths[i] + "_" + "-".join([str(valid_class.bbox[i][j]) for j in range(0,4)])
+            new_valid_dict[new_name] = self.kp_dict[new_name]
+
+        self.kp_dict = new_train_dict
+        valid_class.kp_dict = new_valid_dict
 
         return valid_class
