@@ -11,7 +11,7 @@ import torch
 
 from util                       import ViewpointLoss, tf_logger, Paths
 from util                       import get_data_loaders, vp_metrics
-from models                     import clickhere_cnn, ch_convAtt
+from models                     import clickhere_cnn, ch_convAtt, render4cnn
 from util.torch_utils           import to_var, save_checkpoint
 from torch.optim.lr_scheduler   import MultiStepLR
 
@@ -30,7 +30,12 @@ def main(args):
                                                     parallel    = args.world_size > 1)
 
     print "#############  Initiate Model     ##############"
-    if args.model == 'clickhere':
+    if args.model == 'render':
+        assert Paths.render4cnn_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
+        # weights = torch.load('/z/home/mbanani/projects/pytorch-clickhere-cnn/model_weights/new_rendercnn_fullFT.pkl')
+        weights = torch.load(Paths.render4cnn_weights)
+        model = render4cnn(weights = weights, num_classes = args.num_classes)
+    elif args.model == 'clickhere':
         assert Paths.render4cnn_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
         weights = torch.load(Paths.render4cnn_weights)
         model = clickhere_cnn(weights = weights, num_classes = args.num_classes)
@@ -188,14 +193,14 @@ def train_step(model, train_loader, criterion, optimizer, epoch, step, valid_loa
         training_time = time.time()
 
         # Set mini-batch dataset
-        images      = to_var(images, volatile=False)
+        images      = to_var(images)
         azim_label  = to_var(azim_label)
         elev_label  = to_var(elev_label)
         tilt_label  = to_var(tilt_label)
         obj_class   = to_var(obj_class)
 
-        kp_map      = to_var(kp_map, volatile=False)
-        kp_class    = to_var(kp_class, volatile=False)
+        kp_map      = to_var(kp_map)
+        kp_class    = to_var(kp_class)
 
         # Forward, Backward and Optimize
         model.zero_grad()
@@ -273,14 +278,18 @@ def eval_step( model, data_loader,  criterion, step, datasplit, with_dropout = F
         if i % args.log_rate == 0:
             print "Evaluation of %s [%d/%d] Time Elapsed: %f " % (datasplit, i, total_step, time.time() - start_time)
 
-        images = to_var(images, volatile=True)
-        azim_label = to_var(azim_label, volatile=True)
-        elev_label = to_var(elev_label, volatile=True)
-        tilt_label = to_var(tilt_label, volatile=True)
-        kp_map      = to_var(kp_map, volatile=False)
-        kp_class    = to_var(kp_class, volatile=False)
+        images = to_var(images)
+        azim_label = to_var(azim_label)
+        elev_label = to_var(elev_label)
+        tilt_label = to_var(tilt_label)
 
-        azim, elev, tilt = model(images, kp_map, kp_class)
+        if args.model != "render":
+            kp_map      = to_var(kp_map)
+            kp_class    = to_var(kp_class)
+
+            azim, elev, tilt = model(images, kp_map, kp_class)
+        else:
+            azim, elev, tilt = model(images)
 
         # embed()
         object_class  = to_var(obj_class)

@@ -21,19 +21,52 @@ class advisee_dataset(data.Dataset):
             csv_path    path containing instance data
             augment     boolean for flipping images
     """
-    def __init__(self, kp_dict, dataset_root = None, im_size = 227, transform = None, temperature=1.0, regression = False):
+    def __init__(self, kp_dict, dataset_root = None, num_classes = 34, im_size = 227, transform = None, temperature=1.0, regression = False, render_dict = None):
 
         start_time = time.time()
 
         assert kp_dict is not None
 
 
+
         # dataset parameters
         self.root           = dataset_root
         self.loader         = self.pil_loader
-        self.num_classes    = 34
+
+        if num_classes != 34:
+            assert num_classes == 37
+            self.num_classes    = 34 + 3
+            assert render_dict  != None
+
+            for key in kp_dict.keys():
+                kp_dict_class = kp_dict[key]['class']
+                kp_classes    = kp_dict[key]['geo_dist'].keys()
+
+                if kp_dict_class == 0:
+                    adder = 0
+                    new_kp = 12
+                elif kp_dict_class == 1:
+                    adder = 1
+                    new_kp = 25
+                elif kp_dict_class == 2:
+                    adder = 2
+                    new_kp = 36
+
+                old_dict = kp_dict[key]['geo_dist']
+                kp_dict[key]['geo_dist'] = {}
+
+                for kp in kp_classes:
+                    kp_dict[key]['geo_dist'][kp+adder] = old_dict[kp]
+
+                if (key in kp_dict.keys()) and (key in render_dict.keys()):
+                    kp_dict[key]['geo_dist'][new_kp] = render_dict[key]['geo_dist'][render_dict[key]['geo_dist'].keys()[0]]
+
+        else:
+            self.num_classes    = 34
+
         self.temperature    = temperature
         self.regression     = regression
+        self.render_dict    = render_dict
 
 
         # Load instance data from csv-file
@@ -66,15 +99,16 @@ class advisee_dataset(data.Dataset):
         print "Dataset loaded in ", time.time() - start_time, " secs."
         print "Dataset size: ", self.num_instances
 
-    def calculate_prob_vector(self, geo_dict):
+    def calculate_prob_vector(self, geo_dict, render_value = None):
         output      = np.zeros(self.num_classes)
         geo_list    = geo_dict.keys()
         geo_dists   = [geo_dict[geo_list[i]] for i in range(0, len(geo_list)) ]
 
+
         if self.regression :
             output  = np.ones(self.num_classes) * np.pi * 2 / self.temperature
-
-            output[geo_list[i]] = geo_dists[i] / self.temperature
+            for i in range(0, len(geo_list)):
+                output[geo_list[i]] = geo_dists[i] / self.temperature
         else:
             for i in range(0, len(geo_list)):
                 # output[geo_list[i]] = -1.0 * geo_dists[i]/self.temperature
@@ -149,7 +183,11 @@ class advisee_dataset(data.Dataset):
             im_path = '_'.join(key.split('_')[:-1])
             bb      = [int(i) for i in key.split('_')[-1].split('-')]
             obj_cls = kp_dict[key]['class']
-            gdist   = self.calculate_prob_vector(kp_dict[key]['geo_dist'])
+            if self.render_dict == None:
+                gdist   = self.calculate_prob_vector(kp_dict[key]['geo_dist'])
+            else:
+                gdist   = self.calculate_prob_vector(kp_dict[key]['geo_dist'], self.render_dict[key]['geo_dist'])
+
             # currently ignoring pred and label .. just retaining geo_dists
 
             image_paths.append(im_path)
@@ -171,9 +209,14 @@ class advisee_dataset(data.Dataset):
 
     def generate_validation(self, ratio = 0.1):
 
-        assert ratio > (2.*self.num_classes/float(self.num_instances)) and ratio < 0.5
+        assert ratio > (2.*self.num_classes/float(self.num_instances)) and ratio <= 0.5
 
-        random.seed(a = 6306819796159687115)
+        # random.seed(a = 248790)
+        # random.seed(a = 404384)
+        # random.seed(a = 0105000)
+        # random.seed(a = 011500)
+        random.seed(a = 8666)
+
 
         valid_class     = copy.deepcopy(self)
         #

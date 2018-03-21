@@ -31,12 +31,12 @@ def main(args):
 
     # initiate metrics
     if args.loss == 'MSE':
-        metrics_train = adviser_metrics(train_loader.dataset.kp_dict, regression=True )
-        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict,  regression=True )
+        metrics_train = adviser_metrics(train_loader.dataset.kp_dict, regression=True, num_classes = args.num_classes)
+        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict, num_classes = args.num_classes, priors = None)
         # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict, regression=True )
     else:
-        metrics_train = adviser_metrics(train_loader.dataset.kp_dict)
-        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict)
+        metrics_train = adviser_metrics(train_loader.dataset.kp_dict, num_classes = args.num_classes)
+        metrics_test  = adviser_metrics(test_loader.dataset.kp_dict, num_classes = args.num_classes, priors = None)
         # metrics_valid = adviser_metrics(valid_loader.dataset.kp_dict)
 
     print "#############  Initiate Model     ##############"
@@ -44,7 +44,7 @@ def main(args):
         assert Paths.clickhere_weights != None, "Error: Set render4cnn weights path in util/Paths.py."
         weights = torch.load(Paths.clickhere_weights)
         # weights = torch.load(Paths.render4cnn_weights)
-        model = alexAdviser(weights = weights)
+        model = alexAdviser(weights = weights, num_classes = args.num_classes)
     else:
         assert False, "Error: unknown model choice."
 
@@ -58,8 +58,8 @@ def main(args):
     elif args.optimizer == 'sgd':
         optimizer = torch.optim.SGD(params, lr=args.lr, momentum = 0.9, weight_decay = 0.0005)
         scheduler = MultiStepLR( optimizer,
-                                 milestones=range(0, args.num_epochs, 5),
-                                 gamma=0.95)
+                                 milestones = range(0, args.num_epochs, 5),
+                                 gamma      = 0.95)
     else:
         assert False, "Error: Unknown choice for optimizer."
 

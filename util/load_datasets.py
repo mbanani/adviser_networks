@@ -48,8 +48,15 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
         kp_dict_train   = np.load(Paths.kp_dict_chcnn_train).item()
         kp_dict_test    = np.load(Paths.kp_dict_chcnn_ftAtt_test).item()
 
-        train_set       = advisee_dataset(kp_dict_train, dataset_root = dataset_root, transform =  old_transform, regression = regression)
-        test_set        = advisee_dataset(kp_dict_test,  dataset_root = dataset_root, transform =  old_transform, regression = regression)
+        if num_classes == 37:
+            render_dict_train   = np.load(Paths.r4cnn_dict_train).item()
+            render_dict_test    = np.load(Paths.r4cnn_dict_test).item()
+        else:
+            render_dict_train   = None
+            render_dict_test    = None
+
+        train_set       = advisee_dataset(kp_dict_train, num_classes = num_classes, dataset_root = dataset_root, transform =  old_transform, regression = regression, render_dict = render_dict_train)
+        test_set        = advisee_dataset(kp_dict_test,  num_classes = num_classes, dataset_root = dataset_root, transform =  old_transform, regression = regression, render_dict = render_dict_test)
 
         valid = 0.0
         flip  = False
@@ -59,10 +66,11 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
         dataset_root = '/z/home/mbanani/datasets/pascal3d'
 
         # kp_dict_train   = np.load(Paths.kp_dict_chcnn_ftAtt_train).item()
+        kp_dict_test    = np.load(Paths.kp_dict_chcnn_train).item()
         kp_dict_test    = np.load(Paths.kp_dict_chcnn_ftAtt_test).item()
 
         train_set       = advisee_dataset(kp_dict_test, dataset_root = dataset_root, transform =  old_transform, regression = regression)
-        test_set        = train_set.generate_validation(0.3)
+        test_set        = train_set.generate_validation(0.5)
 
         flip  = False
 
@@ -205,7 +213,7 @@ def get_data_loaders(dataset, batch_size, num_workers, model, num_classes = 12, 
                                                 shuffle     = (train_sampler is None),
                                                 sampler     = train_sampler,
                                                 num_workers =num_workers,
-                                                drop_last   = True)
+                                                drop_last   = False)
 
     test_loader  = torch.utils.data.DataLoader( dataset=test_set,
                                                 batch_size=batch_size,

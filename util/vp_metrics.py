@@ -2,6 +2,8 @@ import numpy as np
 import scipy.misc
 from scipy import linalg as linAlg
 
+from util import Paths
+
 from IPython import embed
 
 
@@ -258,12 +260,19 @@ class vp_metrics(object):
 
 class adviser_metrics(object):
 
-    def __init__(self, performance_dict, regression=False):
+    def __init__(self, performance_dict, regression=False, num_classes = 34, priors = None):
         self.results_dict  = { 0: dict(), 1: dict(), 2: dict() }
         self.performance_dict = performance_dict
-        self.class_ranges  = [0, 12, 24,  34]
+
+        if num_classes == 34:
+            self.class_ranges  = [0, 12, 24,  34]
+        elif num_classes == 37:
+            print "Number of classes : ", num_classes
+            self.class_ranges  = [0, 13, 26,  37]
+
         self.threshold = np.pi / 6.0
         self.regression = False
+        self.priors     = priors
         self.calculate_performance_baselines()
 
     """
@@ -317,7 +326,7 @@ class adviser_metrics(object):
                 top_real    = [k for k in rank_pred if k in set(kp_ind)][0]
                 top_all     = rank_pred[0]
 
-                type_correct[index] += self.performance_dict[key]['correct'][top_real]
+                type_correct[index] += float(self.performance_dict[key]['geo_dist'][top_real] >= self.threshold)
                 type_geo_dist[index].append(self.performance_dict[key]['geo_dist'][top_real])
                 type_total[index]   += 1.0
 
@@ -334,7 +343,7 @@ class adviser_metrics(object):
         all_keys = [self.results_dict[index].keys() for index in range(0,3)]
         return type_accuracy, type_total, type_medError, qualitative_dict
 
-    def calculate_performance_baselines(self, mode = 'real'):
+    def calculate_performance_baselines(self, mode = 'real', isTest = True):
 
         worst_baseline  = [ [] for x in range(0, 3)]
         best_baseline   = [ [] for x in range(0, 3)]
@@ -343,11 +352,33 @@ class adviser_metrics(object):
         freq_prior_baseline = [ [] for x in range(0, 3)]
         perf_prior_baseline = [ [] for x in range(0, 3)]
 
-        freq_prior  = [0.] * 34
-        perf_prior  = [0.] * 34
+        freq_prior  = [0.] * self.class_ranges[-1]
+        perf_prior  = [0.] * self.class_ranges[-1]
+
+        # RenderForCNN
+        # render_dict     = np.load(Paths.r4cnn_dict_test).item()
+        # renderFT_dict   = np.load(Paths.r4cnnFT_dict_test).item()
+        # render_baseline     = [ [] for x in range(0, 3)]
+        # renderFT_baseline   = [ [] for x in range(0, 3)]
+
+        render_dict     = []
+        renderFT_dict   = []
+
 
         #iterate over batch
         for image in self.performance_dict.keys():
+
+            if isTest:
+                if image in render_dict:
+                    r_class     = self.performance_dict[image]['class']
+                    randomKP    =  self.performance_dict[image]['geo_dist'].keys()[0]
+                    render_baseline[  r_class].append( render_dict[image]['geo_dist'][randomKP])
+                    renderFT_baseline[r_class].append( renderFT_dict[image]['geo_dist'][randomKP])
+                else:
+                    print " One skipped ------------------------------"
+                    isTest = False
+
+
             obj_cls = self.performance_dict[image]['class']
 
             perf = [self.performance_dict[image]['geo_dist'][kp] for kp in self.performance_dict[image]['geo_dist'].keys()]
@@ -366,32 +397,38 @@ class adviser_metrics(object):
         bus = ['body_back_left_lower', 'body_back_left_upper', 'body_back_right_lower',
                         'body_back_right_upper', 'body_front_left_upper', 'body_front_right_upper',
                         'body_front_left_lower', 'body_front_right_lower', 'left_back_wheel',
-                        'left_front_wheel', 'right_back_wheel', 'right_front_wheel']
+                        'left_front_wheel', 'right_back_wheel', 'right_front_wheel', "No KP"]
 
         car = ['left_front_wheel', 'left_back_wheel', 'right_front_wheel',
                         'right_back_wheel', 'upper_left_windshield', 'upper_right_windshield',
                         'upper_left_rearwindow', 'upper_right_rearwindow', 'left_front_light',
-                        'right_front_light', 'left_back_trunk', 'right_back_trunk']
+                        'right_front_light', 'left_back_trunk', 'right_back_trunk', "No KP"]
 
         motorbike = ['back_seat', 'front_seat', 'head_center', 'headlight_center',
                         'left_back_wheel', 'left_front_wheel', 'left_handle_center',
-                        'right_back_wheel', 'right_front_wheel', 'right_handle_center']
+                        'right_back_wheel', 'right_front_wheel', 'right_handle_center', "No KP"]
 
         # calculate priors
-        perf_rank = np.argsort(perf_prior)[::-1]
-        freq_rank = np.argsort(freq_prior)[::-1]
+        if self.priors == None:
+            perf_rank = np.argsort(perf_prior)[::-1]
+            freq_rank = np.argsort(freq_prior)[::-1]
+            self.priors = [perf_rank, freq_rank]
+        else:
+            perf_rank = self.priors[0]
+            freq_rank = self.priors[1]
+
         print "Bus"
         class_range = range(0, 12)
         print "Perf Prior: ", [bus[x] for x in perf_rank if x in class_range]
         print "Freq Prior: ", [bus[x] for x in freq_rank if x in class_range]
         print "Car"
         class_range = range(12, 24)
-        print "Perf Prior: ", [car[x - 12] for x in perf_rank if x in class_range]
-        print "Freq Prior: ", [car[x - 12] for x in freq_rank if x in class_range]
+        print "Perf Prior: ", [car[x - class_range[0]] for x in perf_rank if x in class_range]
+        print "Freq Prior: ", [car[x - class_range[0]] for x in freq_rank if x in class_range]
         print "Motorbike"
         class_range = range(24, 34)
-        print "Perf Prior: ", [motorbike[x - 24] for x in perf_rank if x in class_range]
-        print "Freq Prior: ", [motorbike[x - 24] for x in freq_rank if x in class_range]
+        print "Perf Prior: ", [motorbike[x - class_range[0]] for x in perf_rank if x in class_range]
+        print "Freq Prior: ", [motorbike[x - class_range[0]] for x in freq_rank if x in class_range]
 
         for image in self.performance_dict.keys():
             kp_ind = self.performance_dict[image]['geo_dist'].keys()
@@ -417,10 +454,18 @@ class adviser_metrics(object):
         self.medError_perf_p  = np.around([ (180. / np.pi ) * np.median(perf_prior_baseline[i]  ) for i in range(0, 3) ], decimals = 2)
         self.medError_freq_p  = np.around([ (180. / np.pi ) * np.median(freq_prior_baseline[i]) for i in range(0, 3) ], decimals = 2)
 
+        if isTest:
+            self.accuracy_r4cnn     = np.around([ 100. * np.mean([ num < self.threshold for num in render_baseline[i] ]) for i in range(0, 3) ], decimals = 2)
+            self.accuracy_r4cnnFT   = np.around([ 100. * np.mean([ num < self.threshold for num in renderFT_baseline[i] ]) for i in range(0, 3) ], decimals = 2)
+            self.medError_r4cnn     = np.around([ (180. / np.pi ) * np.median(render_baseline[i]  ) for i in range(0, 3) ], decimals = 2)
+            self.medError_r4cnnFT   = np.around([ (180. / np.pi ) * np.median(renderFT_baseline[i]) for i in range(0, 3) ], decimals = 2)
+
         len_best_error      = [len(best_baseline[i])  for i in range(0, 3) ]
         # print "Length of each vector: ", len_best_error, "Number of elements: ", sum(len_best_error)
 
         print "Accuracy "
+        if isTest:print "r4cnn     : ", self.accuracy_r4cnn   , " -- mean : ", np.round(np.mean(self.accuracy_r4cnn   ), decimals = 2)
+        if isTest:print "r4cnn-FT  : ", self.accuracy_r4cnnFT  , " -- mean : ", np.round(np.mean(self.accuracy_r4cnnFT  ), decimals = 2)
         print "best      : ", self.accuracy_best   , " -- mean : ", np.round(np.mean(self.accuracy_best   ), decimals = 2)
         print "worst     : ", self.accuracy_worst  , " -- mean : ", np.round(np.mean(self.accuracy_worst  ), decimals = 2)
         print "mean      : ", self.accuracy_mean   , " -- mean : ", np.round(np.mean(self.accuracy_mean   ), decimals = 2)
@@ -428,9 +473,36 @@ class adviser_metrics(object):
         print "freq prior: ", self.accuracy_freq_p , " -- mean : ", np.round(np.mean(self.accuracy_freq_p ), decimals = 2)
         print "perf prior: ", self.accuracy_perf_p , " -- mean : ", np.round(np.mean(self.accuracy_perf_p ), decimals = 2)
         print "Median Error "
+        if isTest:print "r4cnn     : ", self.medError_r4cnn   , " -- mean : ", np.round(np.mean(self.medError_r4cnn   ), decimals = 2)
+        if isTest:print "r4cnn-FT  : ", self.medError_r4cnnFT  , " -- mean : ", np.round(np.mean(self.medError_r4cnnFT  ), decimals = 2)
         print "best      : ", self.medError_best   , " -- mean : ",  np.round(np.mean(self.medError_best   ), decimals = 2)
         print "worst     : ", self.medError_worst  , " -- mean : ",  np.round(np.mean(self.medError_worst  ), decimals = 2)
         print "mean      : ", self.medError_mean   , " -- mean : ",  np.round(np.mean(self.medError_mean   ), decimals = 2)
         print "median    : ", self.medError_median , " -- mean : ",  np.round(np.mean(self.medError_median ), decimals = 2)
         print "freq prior: ", self.medError_freq_p , " -- mean : ", np.round(np.mean(self.medError_freq_p ), decimals = 2)
         print "perf prior: ", self.medError_perf_p , " -- mean : ", np.round(np.mean(self.medError_perf_p ), decimals = 2)
+
+        print "For Excel!"
+        # Render
+        if isTest:print self.accuracy_r4cnn[0], ", ", self.accuracy_r4cnn[1], ", ", self.accuracy_r4cnn[2], ", ", np.round(np.mean(self.accuracy_r4cnn), decimals = 2), "," ,
+        if isTest:print self.medError_r4cnn[0], ", ", self.medError_r4cnn[1], ", ", self.medError_r4cnn[2], ", ", np.round(np.mean(self.medError_r4cnn), decimals = 2)
+        # FT
+        if isTest:print self.accuracy_r4cnnFT[0], ", ", self.accuracy_r4cnnFT[1], ", ", self.accuracy_r4cnnFT[2], ", ", np.round(np.mean(self.accuracy_r4cnnFT), decimals = 2), ",",
+        if isTest:print self.medError_r4cnnFT[0], ", ", self.medError_r4cnnFT[1], ", ", self.medError_r4cnnFT[2], ", ", np.round(np.mean(self.medError_r4cnnFT), decimals = 2)
+        # Worst
+        print self.accuracy_worst[0], ", ", self.accuracy_worst[1], ", ", self.accuracy_worst[2], ", ", np.round(np.mean(self.accuracy_worst), decimals = 2), ",",
+        print self.medError_worst[0], ", ", self.medError_worst[1], ", ", self.medError_worst[2], ", ", np.round(np.mean(self.medError_worst), decimals = 2)
+        # Mean
+        print self.accuracy_mean[0], ", ", self.accuracy_mean[1], ", ", self.accuracy_mean[2], ", ", np.round(np.mean(self.accuracy_mean), decimals = 2), ",",
+        print self.medError_mean[0], ", ", self.medError_mean[1], ", ", self.medError_mean[2], ", ", np.round(np.mean(self.medError_mean), decimals = 2)
+        # frequency
+        print self.accuracy_freq_p[0], ", ", self.accuracy_freq_p[1], ", ", self.accuracy_freq_p[2], ", ", np.round(np.mean(self.accuracy_freq_p), decimals = 2), ",",
+        print self.medError_freq_p[0], ", ", self.medError_freq_p[1], ", ", self.medError_freq_p[2], ", ", np.round(np.mean(self.medError_freq_p), decimals = 2)
+        # performance
+        print self.accuracy_perf_p[0], ", ", self.accuracy_perf_p[1], ", ", self.accuracy_perf_p[2], ", ", np.round(np.mean(self.accuracy_perf_p), decimals = 2), ",",
+        print self.medError_perf_p[0], ", ", self.medError_perf_p[1], ", ", self.medError_perf_p[2], ", ", np.round(np.mean(self.medError_perf_p), decimals = 2)
+        # Best
+        print self.accuracy_best[0], ", ", self.accuracy_best[1], ", ", self.accuracy_best[2], ", ", np.round(np.mean(self.accuracy_best), decimals = 2), ",",
+        print self.medError_best[0], ", ", self.medError_best[1], ", ", self.medError_best[2], ", ", np.round(np.mean(self.medError_best), decimals = 2)
+
+        print ""

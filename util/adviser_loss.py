@@ -18,8 +18,10 @@ class adviser_loss(nn.Module):
         self.loss        = loss
         self.weights     = np.ones(3) if weights is None else weights
 
-        self.ranges = [0, 12, 24, 34]
-
+        if num_classes == 37:
+            self.ranges = [0, 13, 26, 37]
+        else:
+            self.ranges = [0, 12, 24, 34]
 
         assert loss in ['BCE', 'KL', 'MSE']
 
@@ -86,6 +88,7 @@ class adviser_loss(nn.Module):
                 curr_class  = obj_classes[inst_id]
                 start_index = self.ranges[curr_class]
                 end_index   = self.ranges[curr_class + 1]
+
 
                 losses[curr_class] += weights[curr_class] * F.mse_loss( preds[inst_id, start_index:end_index],
                                                                 labels[inst_id, start_index:end_index],
