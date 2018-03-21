@@ -14,7 +14,7 @@ If you find this work useful in your research, please consider citing:
         title = "Adviser Networks: Learning What Question to Ask for Human-In-The-Loop Viewpoint Estimation",
         journal = ArXiv e-prints,
         year = 2018,
-        month = Feb,
+        month = March,
     }
 
 
@@ -22,6 +22,10 @@ If you have any questions, please email me at mbanani@umich.edu.
 
 
 ### To Do
+
+All code uploaded. README will be updated soon.
+
+<!-- ### To Do
 
 - [x] Look at the tasks described by the ICLR 2018 paper -- ["Ask The Right Question"](https://openreview.net/forum?id=S1CChZ-CZ)
     - While the paper seems to be of relevance at the high level,
@@ -103,7 +107,7 @@ those weights. As reported below, fine-tuning just the attention model achieves 
 | Mean       | 89.68 | 84.73 | 78.17  | 84.19 |  3.41 | 6.65  | 13.21  | 7.76  |
 | Median     | 92.17 | 88.71 | 79.35  | 86.74 |  3.25 | 6.18  | 12.71  | 7.38  |
 | Best       | 95.37 | 92.37 | 87.91  | 91.88 |  2.92 | 5.45  | 11.69  | 6.69  |
-
+ -->
 
 
 ## Acknowledgements
