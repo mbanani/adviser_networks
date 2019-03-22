@@ -3,8 +3,6 @@
 By [Mohamed El Banani](http://mbanani.github.io/) and [Jason J. Corso](http://web.eecs.umich.edu/~jjcorso/), University of Michigan
 
 
-### Introduction
-
 This is the code and data for the work presented in the arXiv tech report, [Adviser Networks](https://arxiv.org/abs/1802.01666).
 
 If you find this work useful in your research, please consider citing:
@@ -20,10 +18,6 @@ If you find this work useful in your research, please consider citing:
 
 If you have any questions, please email me at mbanani@umich.edu.
 
-
-### To Do
-
-All code uploaded. README will be updated soon.
 
 <!-- ### To Do
 
